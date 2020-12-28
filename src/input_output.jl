@@ -1,0 +1,645 @@
+##################################################################################################
+# INPUT/OUTPUT
+##################################################################################################
+"""
+    `print_log(MESSAGE)`
+
+    Function that prints MESSAGE to stderr.
+
+    # Examples
+    ```julia-repl
+    julia> CpelNano.print_log("Hello")
+    [2020-03-30 16:24:18]: Hello
+    ```
+"""
+function print_log(mess::String)
+
+    # Right format for date
+    date = Dates.format(now(), "yyyy-mm-dd HH:MM:SS")
+    println(stderr,"[$(date)]: "  * mess)
+    flush(stderr)
+
+    # Return
+    return nothing
+
+end
+"""
+    `check_output_exists(CONFIG)`
+
+    Function that checks if at least one output file exists.
+
+    # Examples
+    ```julia-repl
+    julia> CpelNano.check_output_exists(config)
+    ```
+"""
+function check_output_exists(config::CpelNanoConfig)::Bool
+    
+    # Init
+    exists = isfile(config.out_files.mml_file)
+    exists |= isfile(config.out_files.nme_file)
+    exists |= isfile(config.out_files.theta_file)
+
+    # Print out message if output exists
+    if exists
+        message = "At least an output file exists. Please, change the output directory and try again."
+        print_log(message)
+        sleep(5)
+    end
+    
+    # Return bool
+    return exists
+
+end
+##################################################################################################
+# ESTIMATION OUTPUT
+##################################################################################################
+"""
+    `write_output_ex(PATH,RS_VEC)`
+
+    Function that stores file with E[X].
+
+    # Examples
+    ```julia-repl
+    julia> CpelNano.write_output_ex(path,rs_vec)
+    ```
+"""
+function write_output_ex(path::String,rs_vec::Vector{RegStruct})::Nothing
+
+    # Write E[X]
+    open(path,"a") do io
+        for rs in rs_vec
+            # Check if region analyzed
+            rs.proc || continue
+            # Loop over CpG groups
+            @inbounds for l=1:rs.L
+                isnan(rs.eXs.ex[l]) && continue
+                write(io,"$(rs.chr)\t$(rs.cpg_pos[l])\t$(rs.cpg_pos[l])\t$(rs.eXs.ex[l])\n")
+            end
+        end
+    end
+
+    # Return
+    return nothing
+
+end
+"""
+    `write_output_exx(PATH,RS_VEC)`
+
+    Function that stores file with E[XX].
+
+    # Examples
+    ```julia-repl
+    julia> CpelNano.write_output_exx(path,rs_vec)
+    ```
+"""
+function write_output_exx(path::String,rs_vec::Vector{RegStruct})::Nothing
+
+    # Write E[XX]
+    open(path,"a") do io
+        for rs in rs_vec
+            # Check if region analyzed
+            rs.proc || continue
+            # Loop over CpG groups
+            @inbounds for l=1:(rs.L-1)
+                isnan(rs.eXs.exx[l]) && continue
+                write(io,"$(rs.chr)\t$(rs.cpg_pos[l])\t$(rs.cpg_pos[l+1])\t$(rs.eXs.exx[l])\n")
+            end
+        end
+    end
+
+    # Return
+    return nothing
+
+end
+"""
+    `write_output_mml(PATH,REGS_DATA)`
+
+    Function that stores file with α-subregion information μ(X)=[μ1(X),μ2(X),…,μK1(X)].
+
+    # Examples
+    ```julia-repl
+    julia> CpelNano.write_output_mml(path,regs_data)
+    ```
+"""
+function write_output_mml(path::String,regs_data::Vector{RegStruct})::Nothing
+
+    # Write μ(X)
+    open(path,"a") do io
+        for reg in regs_data
+
+            # Check if region analyzed
+            reg.proc || continue
+            # print_log("N=$(reg.N); cpg_pos=$(reg.cpg_pos); occ=$(reg.cpg_occ); ϕ=$(reg.ϕhat)")
+            
+            # Create aux start for the first analysis region
+            # aux_chrst = reg.chrst==1 ? 0 : reg.chrst
+            aux_chrst = reg.chrst
+
+            # Get delimiters
+            total_num_sub = length(reg.cpg_occ)
+            sts = total_num_sub==1 ? [aux_chrst,reg.chrend] : get_delims(aux_chrst,reg.chrend,Float64(total_num_sub))
+        
+            # Loop over subregion
+            k = 1
+            for i=1:total_num_sub
+
+                # Check if data 
+                reg.cpg_occ[i] || continue 
+
+                # Get start of region
+                reg_st = sts[i]
+
+                # Get end of region
+                reg_end = sts[i+1]
+
+                # Write μk(X) for k-th α-subregion
+                write(io,"$(reg.chr)\t$(reg_st)\t$(reg_end)\t$(reg.mml[k])\n")
+
+                # Increase k counter
+                k += 1
+
+            end
+
+        end
+    end
+
+    # Return
+    return nothing
+
+end
+"""
+    `write_output_nme(PATH,REGS_DATA)`
+
+    Function that stores file with α-subregion information h(X)=[h1(X),h2(X),…,hK1(X)].
+
+    # Examples
+    ```julia-repl
+    julia> CpelNano.write_output_nme(path,regs_data)
+    ```
+"""
+function write_output_nme(path::String,regs_data::Vector{RegStruct})::Nothing
+
+    # Write h(X)
+    open(path,"a") do io
+        for reg in regs_data
+
+            # Check if region analyzed
+            reg.proc || continue
+            
+            # Create aux start for the first analysis region
+            # aux_chrst = reg.chrst==1 ? 0 : reg.chrst
+            aux_chrst = reg.chrst
+
+            # Get delimiters
+            total_num_sub = length(reg.cpg_occ)
+            sts = total_num_sub==1 ? [aux_chrst,reg.chrend] : get_delims(aux_chrst,reg.chrend,Float64(total_num_sub))
+        
+            # Loop over subregion
+            k = 1
+            for i=1:total_num_sub
+
+                # Check if data 
+                reg.cpg_occ[i] || continue 
+
+                # Get start of region
+                reg_st = sts[i]
+
+                # Get end of region
+                reg_end = sts[i+1]
+
+                # Write μk(X) for k-th α-subregion
+                write(io,"$(reg.chr)\t$(reg_st)\t$(reg_end)\t$(reg.nme_vec[k])\n")
+
+                # Increase k counter
+                k += 1
+
+            end
+
+        end
+    end
+
+    # Return
+    return nothing
+
+end
+"""
+    `write_output_ϕ(PATH,RS_VEC)`
+
+    Function that stores parameter vector ϕ as well as α & β.
+
+    # Examples
+    ```julia-repl
+    julia> CpelNano.write_output_ϕ(path,rs_vec)
+    ```
+"""
+function write_output_ϕ(path::String,rs_vec::Vector{RegStruct})::Nothing
+
+    # Write ϕ
+    open(path,"a") do io
+        for rs in rs_vec
+
+            # Continue if no data
+            rs.proc || continue
+
+            # Obtain each field
+            ϕ = join(rs.ϕhat,',')
+
+            # Obtain α & β
+            α,β = get_αβ_from_ϕ(rs.ϕhat,rs)
+            α = join(α,',')
+            β = join(β,',')
+
+            # Write to file
+            write(io,"$(rs.chr)\t$(rs.chrst)\t$(rs.chrend)\t$(ϕ)\t$(α)\t$(β)\n")
+
+        end
+    end
+
+    # Return
+    return nothing
+
+end
+"""
+    `write_output(REGS_DATA,CONFIG)`
+
+    Function that writes output of `analyze_nano` to output files.
+
+    # Examples
+    ```julia-repl
+    julia> CpelNano.write_output(regs_data,config)
+    ```
+"""
+function write_output(regs_data::Vector{RegStruct},config::CpelNanoConfig)::Nothing
+
+    # Write
+    write_output_ϕ(config.out_files.theta_file,regs_data)
+    write_output_exx(config.out_files.exx_file,regs_data)
+    write_output_ex(config.out_files.ex_file,regs_data)
+        # write_output_mml(config.out_files.mml_file,regs_data)
+        # write_output_nme(config.out_files.nme_file,regs_data)
+    
+    # Return nothing
+    return nothing
+
+end
+##################################################################################################
+# DIFFERENTIAL ANALYSIS
+##################################################################################################
+"""
+    `write_reg_diff_output(PMAP_OUT,UNIQUE_IDS,CONFIG)`
+
+    Function that writes output of Tpdm region differential analysis.
+
+    # Examples
+    ```julia-repl
+    julia> CpelNano.write_reg_diff_output(pmap_out,uniq_ids,config)
+    ```
+"""
+function write_reg_diff_output(pmap_out::Vector{NTuple{2,Float64}},uniq_ids::Vector{String},config::CpelNanoConfig)::Nothing
+
+    # Paths
+    outpath = "$(config.out_dir)/$(config.out_prefix)_tpdm_reg.bedGraph"
+
+    # Write
+    open(outpath,"a") do io
+        @inbounds for i=1:length(uniq_ids)
+
+            # Get analysis region vector info
+            chr_data = split(uniq_ids[i],"_")
+
+            # Assign values
+            chr = chr_data[1]
+            chrst = parse(Int,chr_data[2])
+            chrend = parse(Int,chr_data[3])
+
+            # Write to file
+            write(io,"$(chr)\t$(chrst)\t$(chrend)\t$(pmap_out[i][1])\t$(pmap_out[i][2])\n")
+
+        end
+    end
+    
+    # Return nothing
+    return nothing
+
+end
+"""
+    `write_subreg_tmml_diff_output(PMAP_OUT,UNIQUE_IDS,PATH)`
+
+    Function that writes output of Tmml α-subregion differential analysis.
+
+    # Examples
+    ```julia-repl
+    julia> CpelNano.write_subreg_tmml_diff_output(pmap_out,uniq_ids,path)
+    ```
+"""
+function write_subreg_tmml_diff_output(pmap_out::Vector{RegStatTestStruct},uniq_ids::Vector{String},path::String)::Nothing
+
+    # Write
+    open(path,"a") do io
+        @inbounds for i=1:length(uniq_ids)
+
+            # Get reg data
+            reg_data = pmap_out[i]
+
+            # Create aux start for the first analysis region
+            aux_chrst = reg_data.chrst==1 ? 0 : reg_data.chrst
+
+            # Get delimiters
+            total_num_sub = length(reg_data.subreg_cpg_occ)
+            sts = get_delims(aux_chrst,reg_data.chrend,Float64(total_num_sub))
+        
+            # Loop over subregion
+            k = 1
+            for j=1:total_num_sub
+
+                # Skip if no CpG sites in subregion
+                reg_data.subreg_cpg_occ[j] || continue
+
+                # Get subregion data
+                sub_reg_data = reg_data.subreg_tests[k]
+
+                # Get coordinates of region
+                subreg_st = sts[j]==0 ? 1 : sts[j]
+                subreg_end = sts[j+1]
+
+                # Write Tmml statistics for k-th α-subregion
+                out_str = "$(reg_data.chr)\t$(subreg_st)\t$(subreg_end)\t" 
+                out_str *= "$(sub_reg_data.tmml_test[1])\t$(sub_reg_data.tmml_test[2])\n" 
+                write(io,out_str)
+
+                # Increase counter
+                k += 1
+
+            end
+
+        end
+    end
+    
+    # Return nothing
+    return nothing
+
+end
+"""
+    `write_subreg_tnme_diff_output(PMAP_OUT,UNIQUE_IDS,PATH)`
+
+    Function that writes output of Tnme α-subregion differential analysis.
+
+    # Examples
+    ```julia-repl
+    julia> CpelNano.write_subreg_tnme_diff_output(pmap_out,uniq_ids,path)
+    ```
+"""
+function write_subreg_tnme_diff_output(pmap_out::Vector{RegStatTestStruct},uniq_ids::Vector{String},path::String)::Nothing
+
+    # Write
+    open(path,"a") do io
+        @inbounds for i=1:length(uniq_ids)
+
+            # Get reg data
+            reg_data = pmap_out[i]
+
+            # Create aux start for the first analysis region
+            aux_chrst = reg_data.chrst==1 ? 0 : reg_data.chrst
+
+            # Get delimiters
+            total_num_sub = length(reg_data.subreg_cpg_occ)
+            sts = get_delims(aux_chrst,reg_data.chrend,Float64(total_num_sub))
+        
+            # Loop over subregion
+            k = 1
+            for j=1:total_num_sub
+
+                # Skip if no CpG sites in subregion
+                reg_data.subreg_cpg_occ[j] || continue
+
+                # Get subregion data
+                sub_reg_data = reg_data.subreg_tests[k]
+
+                # Get coordinates of region
+                subreg_st = sts[j]==0 ? 1 : sts[j]
+                subreg_end = sts[j+1]
+
+                # Write Tmml statistics for k-th α-subregion
+                out_str = "$(reg_data.chr)\t$(subreg_st)\t$(subreg_end)\t" 
+                out_str *= "$(sub_reg_data.tnme_test[1])\t$(sub_reg_data.tnme_test[2])\n" 
+                write(io,out_str)
+
+                # Increase counter
+                k += 1
+
+            end
+
+        end
+    end
+    
+    # Return nothing
+    return nothing
+
+end
+"""
+    `write_subreg_diff_output(PMAP_OUT,UNIQUE_IDS,CONFIG)`
+
+    Function that writes output of Tmml & Tnme α-subregion differential analysis.
+
+    # Examples
+    ```julia-repl
+    julia> CpelNano.write_subreg_diff_output(pmap_out,uniq_ids,config)
+    ```
+"""
+function write_subreg_diff_output(pmap_out::Vector{RegStatTestStruct},uniq_ids::Vector{String},config::CpelNanoConfig)::Nothing
+
+    # Paths
+    mml_path = "$(config.out_dir)/$(config.out_prefix)_tmml_subreg.bedGraph"
+    nme_path = "$(config.out_dir)/$(config.out_prefix)_tnme_subreg.bedGraph"
+
+    # Write
+    write_subreg_tmml_diff_output(pmap_out,uniq_ids,mml_path)
+    write_subreg_tnme_diff_output(pmap_out,uniq_ids,nme_path)
+    
+    # Return nothing
+    return nothing
+
+end
+##################################################################################################
+# READ IN
+##################################################################################################
+"""
+    `parse_unit_range(STRING)`
+
+    Function that parses a unit range in the form of a string.
+
+    # Examples
+    ```julia-repl
+    julia> CpelNano.parse_unit_range("1:2")
+    1:2
+    ```
+"""
+function parse_unit_range(x::String)
+    
+    # Split string using the colon
+    y = split(x,':')
+
+    # Return unit range
+    return parse(Int,String(y[1])):parse(Int,String(y[2]))
+
+end
+"""
+    `read_bed_reg(CONFIG)`
+
+    Function that returns a dictionary with regions of interest from BED file provided. We expect a BED 
+    file with chr-reg_st-reg_end as fields, separated by tabulations. We do not expect a header in the
+    file.
+
+    # Examples
+    ```julia-repl
+    julia> CpelNano.read_bed_reg(config)
+    ```
+"""
+function read_bed_reg(config::CpelNanoConfig)::Dict{String,Vector{UnitRange{Int64}}}
+
+    # Initizalize
+    targ_regs = Dict{String,Vector{UnitRange{Int64}}}()
+    open(config.bed_reg) do f
+        for line in enumerate(eachline(f))
+            # Get line info
+            line_vec = split(line[2],"\t")
+            # Get chromosome
+            line_chr = String(line_vec[1])
+            # Get start/end
+            line_chrst = parse(Int64,line_vec[2])
+            line_chrend = parse(Int64,line_vec[3])
+            line_chrend >= line_chrst || continue
+            # print_log("line_chr: $(line_chr); line_chrst: $(line_chrst); line_chrend: $(line_chrend)")
+            # Add to dictionary
+            if haskey(targ_regs,line_chr)
+                push!(targ_regs[line_chr],line_chrst:line_chrend)
+            else
+                targ_regs[line_chr] = [line_chrst:line_chrend]
+            end
+            # print_log("targ_regs: $(targ_regs)")
+        end
+    end
+
+    # Return dictionary
+    return targ_regs
+
+end
+"""
+    `get_dic_nanopolish(REG,CALL_FILE)`
+
+    Function that returns reads in methylation calls by nanopolish and creates a dictionary of data. This
+    function assumes that the file is sorted using the chromosome and start coordinate of the CpG groups, and
+    it assumes that the file contains a header. Furthermore, this function assumes the following fields: 
+    1. chromosome; 3. start; 4. end; 5. read_name.
+
+    # Examples
+    ```julia-repl
+    julia> CpelNano.get_dic_nanopolish(reg,call_file)
+    ```
+"""
+function get_dic_nanopolish(reg_data::RegStruct,call_file::String)::Dict{String,Vector{Vector{SubString}}}
+
+    # Read in (assume it's sorted)
+    chr_visited = false
+    line_dic = Dict{String,Vector{Vector{SubString}}}()
+    open(call_file) do f
+        for line in enumerate(eachline(f))
+            # Skip header
+            line[1]>1 || continue
+            # Get line info
+            line_vec = split(line[2],"\t")
+            # Get chromosome
+            line_chr = line_vec[1]
+            line_chr == reg_data.chr || continue
+            # Set flag
+            chr_visited = true
+            # Get start
+            line_chrst = parse(Int64,line_vec[3])
+            line_chrst <= reg_data.chrend || continue
+            # Get end
+            line_chrend = parse(Int64,line_vec[4])
+            line_chrend >= reg_data.chrst || continue
+            # Get ID
+            line_id = line_vec[5]
+            # Add to dictionary
+            haskey(line_dic,line_id) ? append!(line_dic[line_id],[line_vec]) : line_dic[line_id] = [line_vec]
+            # Break if done: checked the right chromosome and beyond end position
+            chr_visited && line_chrst>reg_data.chrend && break 
+        end
+    end
+    
+    # Return call dictionary
+    return line_dic
+
+end
+"""
+    `read_model_file_chr(FILE,CHR)`
+
+    Function that reads in the output of `analyze_nano` containing models in chromosome CHR.
+
+    # Examples
+    ```julia-repl
+    julia> CpelNano.read_model_file_chr(file,chr)
+    ```
+"""
+function read_model_file_chr(file::String,chr::String)::Dict{String,RegStruct}
+
+    # Go over all lines in file
+    out_dic = Dict{String,RegStruct}()
+    open(file) do f
+        for line in enumerate(eachline(f))
+
+            # Get line data
+            line_vec = split(line[2],"\t")
+
+            # Get chromosome info
+            reg_chr = line_vec[1]
+            reg_chr == chr || continue
+
+            # Init struct
+            reg_model = RegStruct()
+            reg_model.chr = reg_chr
+            
+            # Get start or end
+            reg_model.chrst = parse(Int64,line_vec[2])
+            reg_model.chrend = parse(Int64,line_vec[3])
+            
+            # Get a,b,c
+            reg_model.ϕhat = parse.(Float64,String.(split(line_vec[4],",")))
+            
+            # Mark region as processed
+            reg_model.proc = true
+
+            # Set region ID based on chr_st_end
+            reg_id = join([reg_model.chr,reg_model.chrst,reg_model.chrend],"_")
+
+            # Add to dictionary 
+            out_dic[reg_id] = reg_model
+            
+        end
+    end
+    
+    # Return dictionary
+    return out_dic
+
+end
+##################################################################################################
+# SORT BEDGRAPH
+##################################################################################################
+"""
+    `sort_bedGraph(BEDGRAPH)`
+
+    Function that sorts bedGraph file.
+
+    # Examples
+    ```julia-repl
+    julia> CpelNano.sort_bedGraph(bedGraph)
+    ```
+"""
+function sort_bedGraph(bedGraph::String)::Nothing
+
+    # Return nothing
+    return nothing
+
+end
