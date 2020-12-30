@@ -54,23 +54,25 @@ function gen_seqs_sims(out_dir,out_prefix,fa_file,mod_file)
         x_vec,cpg_pos = CpelNano.get_methyl_vector(genom_pos,genom_pos+read_len-1,startidx,testidx,model_regs)
         length(cpg_pos)>0 || continue
 
-        # Output methylation lattice
-        io = open(string(out_dir,out_prefix,"_",count,"_x_vec"),"w")
-        @inbounds for i in 1:length(x_vec)
-            cpg_loc = cpg_pos[i] + genom_pos
-            print(io,cpg_loc)
-            print(io,'\t')
-            println(io,x_vec[i])
-        end
+        # Methylate read and leave if not successful
         new_methyl_read = CpelNano.meth_seq(new_read,x_vec)
-        close(io)
-
+        length(new_methyl_read)>0 || continue
+        
         # Print methylated sequence to a fasta file
         io = open(string(out_dir,out_prefix,"_",count,"_reads.fa"),"w")
-        println(io,string(">Read",count))
+        println(io,">Read $(count) @ $(genom_pos):$(genom_pos+read_len-1)")
         println(io,new_methyl_read)
         close(io)
 
+        # Output methylation lattice
+        io = open(string(out_dir,out_prefix,"_",count,"_x_vec.txt"),"w")
+        @inbounds for i in 1:length(x_vec)
+            print(io,cpg_pos[i])
+            print(io,'\t')
+            println(io,x_vec[i])
+        end
+        close(io)
+        
 	    # Calculate new average coverage (substracting N's in chr22)
         avg_cov += read_len / (chrend - chrstart + 1 - 11658691)
 
@@ -84,6 +86,7 @@ function gen_seqs_sims(out_dir,out_prefix,fa_file,mod_file)
 
     CpelNano.print_log("Finished read generation. Total number reads: $(count)")
 
+    # Return nothing
     return nothing
 
 end

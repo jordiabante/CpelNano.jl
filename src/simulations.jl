@@ -403,7 +403,7 @@ function get_methyl_vector(rd_st::Int64,rd_end::Int64,startidx::Int64,endidx::In
     cpg_pos = Vector{Int64}()
 
     # Concatenate all αs and βs
-    for i in startidx:endidx
+    @inbounds for i in startidx:endidx
 
         # Get region struct
         rs = model_regs[i]
