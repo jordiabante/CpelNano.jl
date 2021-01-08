@@ -42,6 +42,7 @@ function process_model_file(chr::String,fasta::String,mod_file::String)::Nothing
             CpelNano.get_grp_info!(rs,fa_rec,1)
             
             # Get αs & βs
+            length(String(line_vec[5]))>0 || continue
             αs = parse.(Float64,String.(split(line_vec[5],",")))
             βs = parse.(Float64,String.(split(line_vec[6],",")))
             
@@ -80,12 +81,12 @@ end
 
 # Model file aims 1-2
 chr = "chr22"
-fasta = "/Users/jordiabante/Desktop/chr22.fa"
-mod_file = "/Users/jordiabante/OneDrive - Johns Hopkins/CpelNano/Data/Simulations/GM12878_wgbs_cpelnano_theta_aug.txt"
+fasta = "/Users/jordiabante/OneDrive - Johns Hopkins/CpelNano/Data/Simulations/reference/chr22.fa"
+mod_file = "/Users/jordiabante/OneDrive - Johns Hopkins/CpelNano/Data/Simulations/ground_truth/GM12878_wgbs_cpelnano_theta_aug.txt"
 process_model_file(chr,fasta,mod_file)
 
 # Model file aim 3
 chr = "chr22"
-fasta = "/Users/jordiabante/Desktop/chr22.fa"
-mod_file = "/Users/jordiabante/OneDrive - Johns Hopkins/CpelNano/Data/Real-Data/GM12878/chr22/GM12878_wgbs_cpelnano_theta.txt"
+fasta = "/Users/jordiabante/OneDrive - Johns Hopkins/CpelNano/Data/Simulations/reference/chr22.fa"
+mod_file = "/Users/jordiabante/OneDrive - Johns Hopkins/CpelNano/Data/Simulations/ground_truth/GM12878_wgbs_cpelnano_theta.txt"
 process_model_file(chr,fasta,mod_file)
