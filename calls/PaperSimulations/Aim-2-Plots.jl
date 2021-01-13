@@ -376,8 +376,12 @@ savefig("$(aim_dir)/Boxplots-EXX-Aim-2.png")
 println("Generating: Scatter parameters")
 plt_params_scatter(10.0,1.0)
 plt_params_scatter(10.0,2.0)
+plt_params_scatter(20.0,1.0)
+plt_params_scatter(20.0,2.0)
 
 # Scatter Expectations
 println("Generating: Scatter expectations")
 plt_exp_scatter(10.0,1.0)
 plt_exp_scatter(10.0,2.0)
+plt_exp_scatter(20.0,1.0)
+plt_exp_scatter(20.0,2.0)

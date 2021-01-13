@@ -10,8 +10,7 @@ using Distributions
 using DelimitedFiles
 
 ## Constants
-const data_dir = "/Users/jordiabante/OneDrive - Johns Hopkins/CpelNano/Data/Real-Data/GM12878/chr22/"
-const aim_dir = "/Users/jordiabante/OneDrive - Johns Hopkins/CpelNano/Data/Simulations/Aim-3/"
+const data_dir = "/Users/jordiabante/OneDrive - Johns Hopkins/CpelNano/Data/Real-Data/GM12878/"
 const blind_friend_col = ["#999999","#E69F00","#56B4E9","#009E73","#F0E442","#0072B2","#D55E00","#CC79A7"]
 
 ## Default attributes
@@ -39,7 +38,7 @@ end
 function find_comm_regions(sts1::Vector{Int64},sts2::Vector{Int64})::NTuple{2,Vector{Bool}}
 
     # Find common regions
-    int_sts = intersect(sts1,sts2)
+    int_sts = intersect(Set(sts1),Set(sts2))
     sts1_ind = map(i-> sts1[i] in int_sts,1:length(sts1))
     sts2_ind = map(i-> sts2[i] in int_sts,1:length(sts2))
 
@@ -76,9 +75,8 @@ end
 ## Read in
 
 # Files
-wgbs_path = "$(data_dir)/GM12878_wgbs_cpelnano_theta.txt"
-nano_path = "$(data_dir)/GM12878_wgbs_cpelnano_theta.txt"
-# nano_path = "$(data_dir)/chr22/GM12878_nanopore_cpelnano_theta.txt"
+wgbs_path = "$(data_dir)/wgbs/GM12878_wgbs_cpelnano_theta.txt"
+nano_path = "$(data_dir)/nanopore/GM12878_nanopore_cpelnano_theta.txt"
 
 # Params
 wgbs_sts,wgbs_params = read_in_model_file(wgbs_path)
@@ -88,9 +86,6 @@ nano_sts,nano_params = read_in_model_file(nano_path)
 wgbs_sts_ind,nano_sts_ind = find_comm_regions(wgbs_sts,nano_sts)
 wgbs_params = wgbs_params[wgbs_sts_ind,:]
 nano_params = nano_params[nano_sts_ind,:]
-
-# Introduce noise (testing) <================================ REMOVE!!
-nano_params .+= rand(Normal(0,0.5),size(nano_params)[1],size(nano_params)[2])
 
 # Correlations
 cor(wgbs_params,nano_params)
@@ -114,8 +109,7 @@ plot(sts,params_rmse,seriestype=:scatter,xlabel=xlab,ylabel=ylab,markersize=0.2,
 xlab = "Genomic coordinate (bp)"
 ylab = "Cosine similarity"
 params_cos_sim = cos_sim(wgbs_params,nano_params)
-plot(sts,params_cos_sim,seriestype=:scatter,xlabel=xlab,ylabel=ylab,markersize=0.2,markeralpha=0.2,
-    ylim=(-1.0,1.0),label="")
+plot(sts,params_cos_sim,seriestype=:scatter,xlabel=xlab,ylabel=ylab,markersize=0.2,markeralpha=0.2,ylim=(-1.0,1.0),label="")
 
 # Plot scatter
 xlab = "Fine-grain"
@@ -127,5 +121,5 @@ p_b = plot(wgbs_params[:,2],nano_params[:,2],seriestype=:scatter,ylabel=ylab,mar
 p_c = plot(wgbs_params[:,3],nano_params[:,3],seriestype=:scatter,xlabel=xlab,ylabel=ylab,markersize=0.2,
     markeralpha=0.2,xlim=(-20.0,20.0),ylim=(-20.0,20.0),label="",title="c");
 plot(p_a,p_b,p_c,layout=(3,1),size=(500,800))
-savefig("$(aim_dir)/Scatter-Aim-3.pdf")
-savefig("$(aim_dir)/Scatter-Aim-3.png")
+savefig("$(data_dir)/Aim-3/Scatter-Aim-3.pdf")
+savefig("$(data_dir)/Aim-3/Scatter-Aim-3.png")
