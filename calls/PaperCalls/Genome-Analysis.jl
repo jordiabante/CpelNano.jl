@@ -60,7 +60,7 @@ findlast(x->x==1,num_cpg_per_grp_data.>0)
 data_dir = "/Users/jordiabante/OneDrive - Johns Hopkins/CpelNano/Data/Real-Data/Genome-Properties-hg38/"
 
 # Read in data
-ar_data = readdlm("$(data_dir)/analysis_region_table_3kb.txt")
+ar_data = readdlm("$(data_dir)/estimation_region_table_3kb.txt")
 
 # 1. Total number of R regions in the human genome that contain at least 1 CG-group: 689,480
 sum(ar_data[:,3] .> 0.0)
@@ -96,7 +96,7 @@ maximum(ar_data[ind,2])
 data_dir = "/Users/jordiabante/OneDrive - Johns Hopkins/CpelNano/Data/Real-Data/Genome-Properties-hg38/"
 
 # Read in analysis region data
-ar_data = readdlm("$(data_dir)/analysis_region_table_3kb.txt")
+ar_data = readdlm("$(data_dir)/estimation_region_table_3kb.txt")
 
 # Read in group histogram data
 grp_len_data = readdlm("$(data_dir)/len_group_histogram.txt")[:,1]

@@ -24,7 +24,7 @@ mutable struct CpelNanoConfig
     min_cov::Float64                    # Minimum average coverage
     min_grp_dist::Int64                 # Minimum distance between CpG groups
     max_size_subreg::Int64              # Maximum size subregion
-    size_an_reg::Int64                  # Average size analysis region
+    size_est_reg::Int64                 # Average size estimation region
     max_em_init::Int64                  # Maximum number of EM initializations used
     max_em_iters::Int64                 # Maximum number of iterations in each EM instance
     out_dir::String                     # Output directory
@@ -42,8 +42,8 @@ mutable struct CpelNanoConfig
     # Init methods
     CpelNanoConfig() = new(10.0,10,250,3000,10,20,"./","cpelnano",false,false,false,false,"nanopolish","",
         false,(0,0,0,0),false,OutputFiles("./","cpelnano"))
-    CpelNanoConfig(min_cov,max_size_subreg,size_an_reg,max_em_init,max_em_iters) = 
-        new(min_cov,10,max_size_subreg+1,size_an_reg,max_em_init,max_em_iters,"","",
+    CpelNanoConfig(min_cov,max_size_subreg,size_est_reg,max_em_init,max_em_iters) = 
+        new(min_cov,10,max_size_subreg+1,size_est_reg,max_em_init,max_em_iters,"","",
         false,false,false,false,"nanopolish","",false,(0,0,0,0),false,OutputFiles("",""))
 end
 

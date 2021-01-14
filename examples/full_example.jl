@@ -19,8 +19,8 @@ isfile(nme_path) && rm(nme_path)
 isfile(theta_path) && rm(theta_path)
 
 # Configuration
-min_cov=2.5; max_size_subreg=500; size_an_reg=3000; max_em_init=1; max_em_iters=20; 
-config = CpelNano.CpelNanoConfig(min_cov,max_size_subreg,size_an_reg,max_em_init,max_em_iters);
+min_cov=2.5; max_size_subreg=500; size_est_reg=3000; max_em_init=1; max_em_iters=20; 
+config = CpelNano.CpelNanoConfig(min_cov,max_size_subreg,size_est_reg,max_em_init,max_em_iters);
 config.out_dir = outdir; config.out_prefix = "full_example"; config.verbose = false;
 
 # Analyze each region in chr

@@ -35,6 +35,35 @@ reg_data.cpg_grps
 reg_data.L
 
 #####################################################################################################
+# GENOME SUBREGIONS
+#####################################################################################################
+## Function used in data analysis
+
+using CpelNano
+config = CpelNano.CpelNanoConfig()
+config.max_size_subreg = 121
+rs = CpelNano.RegStruct()
+rs.chrst = 1
+rs.chrend = 1007
+rs.cpg_pos = [50,100,112,150,250,600,700,900]
+CpelNano.get_sub_info(rs,config)
+
+## Table from fasta
+using CpelNano
+
+# IO
+fasta = "/Users/jordiabante/OneDrive - Johns Hopkins/CpelNano/Data/Simulations/reference/chr22.fa"
+
+# Partition evenly spaced CpG sites
+config = CpelNano.CpelNanoConfig()
+config.out_dir = "/Users/jordiabante/Desktop/"
+config.size_est_reg = 3000
+config.max_size_subreg = 250
+
+# Get histogram of size
+CpelNano.subregion_table(fasta,config)
+
+#####################################################################################################
 # GENOME METRICS
 #####################################################################################################
 using CpelNano
@@ -57,7 +86,7 @@ fasta = "$(dataDir)/hg38_chr17_43023997_43145780.fa"
 config = CpelNano.CpelNanoConfig(); config.out_dir="/Users/jordiabante/Desktop/"
 
 # Get histogram of size
-CpelNano.analysis_region_table(fasta,config)
+CpelNano.estimation_region_table(fasta,config)
 
 #####################################################################################################
 # Produce histogram of group lengths

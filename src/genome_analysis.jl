@@ -290,7 +290,7 @@ function get_informME_chr_part(chr_size::Int64,config::CpelNanoConfig)::Vector{U
     # Loop until entire chromosome is covered
     ok = false
     ar_st = 1
-    ar_end = ar_st + config.size_an_reg - 1
+    ar_end = ar_st + config.size_est_reg - 1
     chr_part = Vector{UnitRange{Int64}}()
     while !ok
 
@@ -302,8 +302,8 @@ function get_informME_chr_part(chr_size::Int64,config::CpelNanoConfig)::Vector{U
         push!(chr_part,ar_st:ar_end)
 
         # Update window
-        ar_st += config.size_an_reg
-        ar_end = ar_st + config.size_an_reg - 1
+        ar_st += config.size_est_reg
+        ar_end = ar_st + config.size_est_reg - 1
 
     end
 
@@ -337,7 +337,7 @@ function get_chr_part(chr::String,config::CpelNanoConfig,fasta::String)::Vector{
     while i<chr_size
 
         # Candidate boundary coordinates
-        bndy = i + config.size_an_reg - 1
+        bndy = i + config.size_est_reg - 1
         # config.verbose && print_log("bndy: $(bndy)")
 
         # Leave if boundary is beyond size
@@ -406,7 +406,7 @@ function get_chr_part(chr::String,config::CpelNanoConfig,fasta::String,targ_regs
         while i<reg_end
 
             # Candidate boundary coordinates
-            bndy = i + config.size_an_reg - 1
+            bndy = i + config.size_est_reg - 1
 
             # Leave if boundary is beyond size
             if bndy >= reg_end 
@@ -457,19 +457,233 @@ function get_chr_part(chr::String,config::CpelNanoConfig,fasta::String,targ_regs
 
 end
 ###################################################################################################################
+# SUBREGION PROPERTIES
+###################################################################################################################
+"""
+    `get_sub_info(REG_STRUCT,CONFIG)`
+
+    Function that stores subregion information.
+
+    # Examples
+    ```julia-repl
+    julia> CpelNano.pmap_subregion_table(reg_int,fa_rec)
+    ```
+"""
+function get_sub_info(rs::RegStruct,config::CpelNanoConfig)::Nothing
+
+    # Get size of estimation region
+    reg_size = (rs.chrend-rs.chrst)+1
+
+    # Find number of necessary subregions
+    k = Int(ceil(reg_size/config.max_size_subreg))
+
+    # Base size of subregions
+    base_size = Int(floor(reg_size / k))
+
+    # Set starts
+    bnds = fill(base_size,k)
+
+    # Reminder
+    rem_size = mod(reg_size,k)
+
+    # Distribute reminder in order
+    i = 1
+    while rem_size > 0
+        bnds[i] += 1
+        rem_size -=1
+        i = i==k  ? 1 : i+1
+    end
+
+    # Add up sizes to obtain offset from start
+    bnds = [sum(bnds[1:i]) for i=1:k] 
+    
+    # Offset all by chromosome start
+    bnds .+= rs.chrst .- 1
+    
+    # Add chromosome start
+    pushfirst!(bnds,rs.chrst)
+    print_log("$(bnds)")
+    
+    # Construct subregion intervals
+    sub_int = [bnds[i]:bnds[i+1] for i=1:(k-1)]
+    print_log("$(sub_int)")
+
+    # Divide CpG sites indices
+    cpg_inds = fill(0:0,k)
+    for i=1:k
+        
+        # Find first and last
+        fst_ind = findfirst(x->bnds[i]<=x<bnds[i+1],rs.cpg_pos)
+        fst_ind = isnothing(fst_ind) ? 0 : fst_ind
+        lst_ind = findlast(x->bnds[i]<=x<bnds[i+1],rs.cpg_pos)
+        lst_ind = isnothing(lst_ind) ? 0 : lst_ind
+        print_log("$(fst_ind):$(lst_ind)")
+
+        # Store info
+        cpg_inds[i] = fst_ind:lst_ind
+
+    end
+    print_log("$(cpg_inds)")
+
+    # Return nothing
+    return nothing
+
+end
+"""
+    `pmap_subregion_table(REG_INT,FA_REC)`
+
+    Function that returns subregions size and number of CpG sites.
+
+    # Examples
+    ```julia-repl
+    julia> CpelNano.pmap_subregion_table(reg_int,fa_rec)
+    ```
+"""
+function pmap_subregion_table(reg_int::UnitRange{Int64},fa_rec::FASTA.Record,max_size_subreg::Int64)::Array{Int64,2}
+
+    # Get start and end
+    chrst = minimum(reg_int)
+    chrend = maximum(reg_int)
+        # print_log("Range: $(reg_int) ...")
+
+    # Get size of estimation region
+    reg_size = chrend-chrst+1
+
+    # Find number of necessary subregions
+    k = Int(ceil(reg_size/max_size_subreg))
+
+    # Base size of subregions
+    base_size = Int(floor(reg_size / k))
+
+    # Set starts
+    bnds = fill(base_size,k)
+
+    # Reminder
+    rem_size = mod(reg_size,k)
+
+    # Distribute reminder in order
+    i = 1
+    while rem_size > 0
+        bnds[i] += 1
+        rem_size -=1
+        i = i==k  ? 1 : i+1
+    end
+
+    # Add up sizes to obtain offset from start
+    bnds = [sum(bnds[1:i]) for i=1:k] 
+    
+    # Offset all by chromosome start
+    bnds .+= chrst .- 1
+    
+    # Add chromosome start
+    pushfirst!(bnds,chrst)
+        # print_log("Bounds: $(bnds)")
+    
+    # Construct subregion intervals
+    sub_int = [bnds[i]:bnds[i+1] for i=1:k]
+    sub_len = length.(sub_int) .- 1
+        # print_log("Subregion intervals: $(sub_int)")
+        # print_log("Subregion lenghts: $(sub_len)")
+
+    # Get position CpG sites
+    dna_seq = FASTA.sequence(String,fa_rec,reg_int)
+    cpg_pos = map(x->getfield(x,:offset),eachmatch(r"[Cc][Gg]",dna_seq)) .+ minimum(reg_int) .- 1
+    length(cpg_pos)>0 || return hcat(fill(chrst,k),fill(chrend,k),sub_len,fill(0,length(sub_len)))
+
+    # Divide CpG sites indices
+    cpg_inds = fill(0:0,k)
+    for i=1:k
+        
+        # Find first and last
+        fst_ind = findfirst(x->bnds[i]<=x<bnds[i+1],cpg_pos)
+        fst_ind = isnothing(fst_ind) ? 0 : fst_ind
+        lst_ind = findlast(x->bnds[i]<=x<bnds[i+1],cpg_pos)
+        lst_ind = isnothing(lst_ind) ? 0 : lst_ind
+        
+        # Store info
+        cpg_inds[i] = fst_ind:lst_ind
+
+    end
+    n_cpgs = length.(cpg_inds)
+        # print_log("CpG sites: $(cpg_inds)")
+        # print_log("Num CpG sites: $(n_cpgs)")
+
+    # Return matrix
+    return hcat(fill(chrst,k),fill(chrend,k),sub_len,n_cpgs)
+
+end
+"""
+    `subregion_table(FASTA,CONFIG)`
+
+    Function that stores a tabulated table with columns: 
+
+        | Start of estimation region | End of estimation region | Subregion size | # CpG sites |
+
+    # Examples
+    ```julia-repl
+    julia> CpelNano.subregion_table(fasta,config)
+    ```
+"""
+function subregion_table(fasta::String,config::CpelNanoConfig)::Nothing
+
+    # Find chromosomes
+    chr_names,chr_sizes = get_genome_info(fasta)
+
+    # Create output directory if not existant
+    isdir(config.out_dir) || mkdir(config.out_dir)
+
+    # Loop over chromosomes
+    for i=1:length(chr_names)
+        
+        # Get chromosome name and size
+        chr = chr_names[i]
+        chr_size = chr_sizes[i]
+        
+        # Print info
+        print_log("Processing chr $(chr) of length $(chr_size) ...")
+        
+        # Get analysis region start positions
+        print_log("Partitioning chr $(chr) ...")
+        chr_part = get_chr_part(chr,config,fasta)
+        
+        # Get FASTA record
+        fa_reader = open(FASTA.Reader,fasta,index=fasta*".fai")
+        fa_rec = fa_reader[chr]
+        close(fa_reader)
+        
+        # Process each analysis region in chr
+        print_log("Processing chr $(chr) ...")
+        out_pmap = pmap(x->pmap_subregion_table(x,fa_rec,config.max_size_subreg),chr_part)
+
+        # Produce a matrix
+        out_pmap = vcat(out_pmap...)
+
+        # Write histogram
+        print_log("Writing results from chr $(chr) ...")
+        open("$(config.out_dir)/subregion_table.txt","a") do io
+            writedlm(io,out_pmap)
+        end
+
+    end
+
+    # Return nothing
+    return nothing
+
+end
+###################################################################################################################
 # ANALYSIS REGION ANALYSIS
 ###################################################################################################################
 """
-    `pmap_analysis_region_analysis(REG_INT,FA_REC,CONFIG)`
+    `pmap_estimation_region_analysis(REG_INT,FA_REC,CONFIG)`
 
     Function that returns a vector with analysis region size, number of CpG sites, and number of CpG groups.
 
     # Examples
     ```julia-repl
-    julia> CpelNano.pmap_analysis_region_analysis(reg_int,fa_rec,config)
+    julia> CpelNano.pmap_estimation_region_analysis(reg_int,fa_rec,config)
     ```
 """
-function pmap_analysis_region_analysis(reg_int::UnitRange{Int64},fa_rec::FASTA.Record,min_grp_dist::Int64)::Vector{Int64}
+function pmap_estimation_region_analysis(reg_int::UnitRange{Int64},fa_rec::FASTA.Record,min_grp_dist::Int64)::Vector{Int64}
 
     # Init
     out_vec = fill(0.0,3)
@@ -491,7 +705,7 @@ function pmap_analysis_region_analysis(reg_int::UnitRange{Int64},fa_rec::FASTA.R
 
 end
 """
-    `analysis_region_table(FASTA,CONFIG)`
+    `estimation_region_table(FASTA,CONFIG)`
 
     Function that stores a tabulated table with columns 
 
@@ -499,10 +713,10 @@ end
 
     # Examples
     ```julia-repl
-    julia> CpelNano.analysis_region_table(nano,fasta,config)
+    julia> CpelNano.estimation_region_table(nano,fasta,config)
     ```
 """
-function analysis_region_table(fasta::String,config::CpelNanoConfig)::Nothing
+function estimation_region_table(fasta::String,config::CpelNanoConfig)::Nothing
 
     # Find chromosomes
     chr_names,chr_sizes = get_genome_info(fasta)
@@ -531,14 +745,14 @@ function analysis_region_table(fasta::String,config::CpelNanoConfig)::Nothing
         
         # Process each analysis region in chr
         print_log("Analyzing chr $(chr) ...")
-        out_pmap = pmap(x->pmap_analysis_region_analysis(x,fa_rec,config.min_grp_dist),chr_part)
+        out_pmap = pmap(x->pmap_estimation_region_analysis(x,fa_rec,config.min_grp_dist),chr_part)
 
         # Produce a matrix
         out_pmap = transpose(hcat(out_pmap...))
 
         # Write histogram
         print_log("Writing results from chr $(chr) ...")
-        open("$(config.out_dir)/analysis_region_table.txt","a") do io
+        open("$(config.out_dir)/estimation_region_table.txt","a") do io
             writedlm(io,out_pmap)
         end
 
