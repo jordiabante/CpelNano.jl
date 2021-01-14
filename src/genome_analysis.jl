@@ -505,7 +505,7 @@ function get_sub_info(rs::RegStruct,config::CpelNanoConfig)::Nothing
     print_log("$(bnds)")
     
     # Construct subregion intervals
-    sub_int = [bnds[i]:bnds[i+1] for i=1:(k-1)]
+    sub_int = [bnds[i]:bnds[i+1] for i=1:k]
     print_log("$(sub_int)")
 
     # Divide CpG sites indices
@@ -524,6 +524,9 @@ function get_sub_info(rs::RegStruct,config::CpelNanoConfig)::Nothing
 
     end
     print_log("$(cpg_inds)")
+
+    ## Store in struct
+    
 
     # Return nothing
     return nothing
@@ -588,7 +591,9 @@ function pmap_subregion_table(reg_int::UnitRange{Int64},fa_rec::FASTA.Record,max
     # Get position CpG sites
     dna_seq = FASTA.sequence(String,fa_rec,reg_int)
     cpg_pos = map(x->getfield(x,:offset),eachmatch(r"[Cc][Gg]",dna_seq)) .+ minimum(reg_int) .- 1
-    length(cpg_pos)>0 || return hcat(fill(chrst,k),fill(chrend,k),sub_len,fill(0,length(sub_len)))
+
+    # If not enough CpG sites for CpelNano return empty
+    length(cpg_pos)>9 || return hcat([],[])
 
     # Divide CpG sites indices
     cpg_inds = fill(0:0,k)
@@ -609,7 +614,7 @@ function pmap_subregion_table(reg_int::UnitRange{Int64},fa_rec::FASTA.Record,max
         # print_log("Num CpG sites: $(n_cpgs)")
 
     # Return matrix
-    return hcat(fill(chrst,k),fill(chrend,k),sub_len,n_cpgs)
+    return hcat(sub_len,n_cpgs)
 
 end
 """
