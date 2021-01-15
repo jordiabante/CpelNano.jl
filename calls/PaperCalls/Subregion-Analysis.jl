@@ -10,6 +10,7 @@ using KernelDensity
 using LinearAlgebra
 using DelimitedFiles
 default(titlefont=(14,"arial"),guidefont=(16,"arial"),tickfont=(12,"arial"),legendfont=(12,"arial"))
+blnd_frnd_col = ["#999999","#E69F00","#56B4E9","#009E73","#F0E442","#0072B2","#D55E00","#CC79A7"]
 
 #####################################################################################################
 # Functions
@@ -56,19 +57,20 @@ base_dir = "/Users/jordiabante/OneDrive - Johns Hopkins"
 data_dir = "$(base_dir)/CpelNano/Data/Real-Data/Subregion-Properties-hg38/"
 
 # Produce histos
-sub_max_sizes = [100,150,250,300,350,400,450,500]
+sub_max_sizes = [100,200,300,400,500]
 (cent_sub_size,size_histos),(cent_num_cpgs,cpgs_histos) = read_in_data(data_dir,sub_max_sizes)
 
 # Plot subregion sizes
 p1 = plot(ylim=(0,100),xlabel="Analysis region size (bp)",ylabel="Percentage (%)")
 for (i,size) in enumerate(sub_max_sizes)
-    plot!(cent_sub_size,size_histos[i].weights*100,seriestype=:bar,alpha=0.5,label="")
+    plot!(cent_sub_size,size_histos[i].weights*100,seriestype=:bar,alpha=0.5,label="",color=blnd_frnd_col[i+1])
 end
 
 # Plot number of CpG sites
 p2 = plot(ylim=(0,100),xlabel="Number of CpG sites",ylabel="Percentage (%)",legend=:best,legendtitle="Max Size")
 for (i,size) in enumerate(sub_max_sizes)
-    plot!(cent_num_cpgs,cpgs_histos[i].weights*100,seriestype=:bar,alpha=0.5,label="$(size) bp")
+    plot!(cent_num_cpgs,cpgs_histos[i].weights*100,seriestype=:bar,alpha=0.5,label="$(size) bp",
+        color=blnd_frnd_col[i+1],xticks=0:2:25)
 end
 
 # Store plot
