@@ -73,8 +73,8 @@ function write_output_ex(path::String,rs_vec::Vector{RegStruct})::Nothing
             rs.proc || continue
             # Loop over CpG groups
             @inbounds for l=1:rs.L
-                isnan(rs.eXs.ex[l]) && continue
-                write(io,"$(rs.chr)\t$(rs.cpg_pos[l])\t$(rs.cpg_pos[l])\t$(rs.eXs.ex[l])\n")
+                isnan(rs.exps.ex[l]) && continue
+                write(io,"$(rs.chr)\t$(rs.cpg_pos[l])\t$(rs.cpg_pos[l])\t$(rs.exps.ex[l])\n")
             end
         end
     end
@@ -102,8 +102,8 @@ function write_output_exx(path::String,rs_vec::Vector{RegStruct})::Nothing
             rs.proc || continue
             # Loop over CpG groups
             @inbounds for l=1:(rs.L-1)
-                isnan(rs.eXs.exx[l]) && continue
-                write(io,"$(rs.chr)\t$(rs.cpg_pos[l])\t$(rs.cpg_pos[l+1])\t$(rs.eXs.exx[l])\n")
+                isnan(rs.exps.exx[l]) && continue
+                write(io,"$(rs.chr)\t$(rs.cpg_pos[l])\t$(rs.cpg_pos[l+1])\t$(rs.exps.exx[l])\n")
             end
         end
     end
@@ -126,38 +126,23 @@ function write_output_mml(path::String,regs_data::Vector{RegStruct})::Nothing
 
     # Write μ(X)
     open(path,"a") do io
-        for reg in regs_data
+        for rs in regs_data
 
             # Check if region analyzed
-            reg.proc || continue
-            # print_log("N=$(reg.N); cpg_pos=$(reg.cpg_pos); occ=$(reg.cpg_occ); ϕ=$(reg.ϕhat)")
-            
-            # Create aux start for the first analysis region
-            # aux_chrst = reg.chrst==1 ? 0 : reg.chrst
-            aux_chrst = reg.chrst
+            rs.proc || continue
 
-            # Get delimiters
-            total_num_sub = length(reg.cpg_occ)
-            sts = total_num_sub==1 ? [aux_chrst,reg.chrend] : get_delims(aux_chrst,reg.chrend,Float64(total_num_sub))
-        
             # Loop over subregion
-            k = 1
-            for i=1:total_num_sub
+            @inbounds for k=1:rs.nls_rgs.num
 
                 # Check if data 
-                reg.cpg_occ[i] || continue 
+                isnan(rs.mml[k]) && continue
 
-                # Get start of region
-                reg_st = sts[i]
+                # Get coordinates
+                reg_st = minimum(rs.nls_rgs.chr_int[k])
+                reg_end = maximum(rs.nls_rgs.chr_int[k])
 
-                # Get end of region
-                reg_end = sts[i+1]
-
-                # Write μk(X) for k-th α-subregion
-                write(io,"$(reg.chr)\t$(reg_st)\t$(reg_end)\t$(reg.mml[k])\n")
-
-                # Increase k counter
-                k += 1
+                # Write μk(X) for k-th analysis region
+                write(io,"$(rs.chr)\t$(reg_st)\t$(reg_end)\t$(rs.mml[k])\n")
 
             end
 
@@ -182,37 +167,23 @@ function write_output_nme(path::String,regs_data::Vector{RegStruct})::Nothing
 
     # Write h(X)
     open(path,"a") do io
-        for reg in regs_data
+        for rs in regs_data
 
             # Check if region analyzed
-            reg.proc || continue
-            
-            # Create aux start for the first analysis region
-            # aux_chrst = reg.chrst==1 ? 0 : reg.chrst
-            aux_chrst = reg.chrst
+            rs.proc || continue
 
-            # Get delimiters
-            total_num_sub = length(reg.cpg_occ)
-            sts = total_num_sub==1 ? [aux_chrst,reg.chrend] : get_delims(aux_chrst,reg.chrend,Float64(total_num_sub))
-        
             # Loop over subregion
-            k = 1
-            for i=1:total_num_sub
+            @inbounds for k=1:rs.nls_rgs.num
 
                 # Check if data 
-                reg.cpg_occ[i] || continue 
+                isnan(rs.nme[k]) && continue 
 
-                # Get start of region
-                reg_st = sts[i]
+                # Get coordinates
+                reg_st = minimum(rs.nls_rgs.chr_int[k])
+                reg_end = maximum(rs.nls_rgs.chr_int[k])
 
-                # Get end of region
-                reg_end = sts[i+1]
-
-                # Write μk(X) for k-th α-subregion
-                write(io,"$(reg.chr)\t$(reg_st)\t$(reg_end)\t$(reg.nme_vec[k])\n")
-
-                # Increase k counter
-                k += 1
+                # Write μk(X) for k-th analysis region
+                write(io,"$(rs.chr)\t$(reg_st)\t$(reg_end)\t$(rs.nme[k])\n")
 
             end
 
@@ -276,8 +247,8 @@ function write_output(regs_data::Vector{RegStruct},config::CpelNanoConfig)::Noth
     write_output_ϕ(config.out_files.theta_file,regs_data)
     write_output_exx(config.out_files.exx_file,regs_data)
     write_output_ex(config.out_files.ex_file,regs_data)
-        # write_output_mml(config.out_files.mml_file,regs_data)
-        # write_output_nme(config.out_files.nme_file,regs_data)
+    write_output_mml(config.out_files.mml_file,regs_data)
+    write_output_nme(config.out_files.nme_file,regs_data)
     
     # Return nothing
     return nothing

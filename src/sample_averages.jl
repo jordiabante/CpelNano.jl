@@ -33,7 +33,7 @@ function comp_smp_ex!(rs::RegStruct)::Nothing
     end
 
     # Store in struct
-    rs.eXs.ex = ex
+    rs.exps.ex = ex
 
     # Return
     return nothing
@@ -88,7 +88,7 @@ function comp_smp_exx!(rs::RegStruct)::Nothing
     end
 
     # Store in struct
-    rs.eXs.exx = exx
+    rs.exps.exx = exx
 
     # Return
     return nothing

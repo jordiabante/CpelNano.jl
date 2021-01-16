@@ -46,7 +46,7 @@ rs = CpelNano.RegStruct()
 rs.chrst = 1
 rs.chrend = 1007
 rs.cpg_pos = [50,100,112,150,250,600,700,900]
-CpelNano.get_sub_info(rs,config)
+CpelNano.get_nls_reg_info(rs,config)
 
 ## Table from fasta
 using CpelNano

@@ -77,8 +77,10 @@ end
 mutable struct Expectations
     ex::Vector{Float64}                                 # Vector E[X]
     exx::Vector{Float64}                                # Vector E[XX]
+    log_g1::Vector{Float64}                             # Vector E[log g1(xp)]
+    log_g2::Vector{Float64}                             # Vector E[log g2(xq)]
     # Init Methods
-    Expectations() = new([],[])
+    Expectations() = new([],[],[],[])
 end
 
 # Structure for matrices
@@ -86,9 +88,12 @@ mutable struct TransferMat
     u1::Vector{Float64}                                 # Vector u1
     uN::Vector{Float64}                                 # Vector uN
     Ws::Vector{Array{Float64,2}}                        # Series of W matrices
+    log_u1::Vector{Float64}                             # Vector log(u1)
+    log_uN::Vector{Float64}                             # Vector log(uN)
+    log_Ws::Vector{Array{Float64,2}}                    # Series of log(W) matrices
     log_gs::LogGs                                       # log(g_i(±⋅))
     # Init Methods
-    TransferMat() = new([],[],[],LogGs())
+    TransferMat() = new([],[],[],[],[],[],LogGs())
 end
 
 # Structure for methylation call at CpG site
@@ -108,6 +113,16 @@ mutable struct CpgGrp
     cpg_ind::UnitRange{Int64}                           # CpG indices for given group
     # Init methods
     CpgGrp(grp_int,cpg_ind) = new(grp_int,cpg_ind)
+end
+
+# Structure for analysis regions (aka subregions)
+mutable struct AnalysisRegions
+    num::Int64                                          # Number of analysis regions
+    chr_int::Vector{UnitRange{Int64}}                   # Genomic intervals
+    cpg_ind::Vector{UnitRange{Int64}}                   # Indices of CpG sites
+    # Init methods
+    AnalysisRegions() = new(0,[],[])
+    AnalysisRegions(chr_int,cpg_ind) = new(length(chr_int),chr_int,cpg_ind)
 end
 
 # Structure for methylation observation vectors in a region
@@ -131,30 +146,34 @@ mutable struct RegStruct
     # Data
     m::Int64                                            # Number of observations
     calls::Vector{Vector{MethCallCpgGrp}}               # Set of meth calls vecs in a region
+    # Analysis regions
+    nls_rgs::AnalysisRegions                            # Structure containing analysis regions info    
     # Output
     ϕhat::Vector{Float64}                               # Estimated parameter vector ϕ
     Z::Float64                                          # Partition function evaluated @ ϕ
+    logZ::Float64                                       # Log partition function evaluated @ ϕ
     ∇logZ::Vector{Float64}                              # Gradient of log likelihood @ ϕhat
     mml::Vector{Float64}                                # Mean methylation level
-    nme::Float64                                        # Normalized methylation entropy
-    nme_vec::Vector{Float64}                            # Normalized methylation entropy vector
+    nme::Vector{Float64}                                # Normalized methylation entropy
     Σmat::UpperTriangular{Float64,Array{Float64,2}}     # Covariance matrix
     # Transfer matrix
     tm::TransferMat                                     # Arrays for transfer matrix methods
     # Expectations
-    eXs::Expectations                                   # Expectations of estimation region
+    exps::Expectations                                  # Expectations of estimation region
     # Init Methods
     RegStruct() = new(false,
         "",0,0,0,0,[],[],[],[],[],[],[],[],
         0,[],
-        [],NaN,[],[],NaN,[],UpperTriangular(fill(NaN,(1,1))),
+        AnalysisRegions(),
+        [],NaN,NaN,[],[],[],UpperTriangular(fill(NaN,(1,1))),
         TransferMat(),
         Expectations()
     )
     RegStruct(calls) = new(false,
         "",0,0,0,0,[],[],[],[],[],[],[],[],
         length(calls),calls,
-        [],NaN,[],[],NaN,[],UpperTriangular(fill(NaN,(1,1))),
+        AnalysisRegions(),
+        [],NaN,NaN,[],[],[],UpperTriangular(fill(NaN,(1,1))),
         TransferMat(),
         Expectations()
     )

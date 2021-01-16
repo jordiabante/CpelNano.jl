@@ -379,10 +379,10 @@ function pmap_analyze_reg_bam(reg_int::UnitRange{Int64},chr::String,bam::String,
     get_rs_logZ!(rs)
 
     # Get E[X]
-    rs.eXs.ex = get_E_X_log(rs.tm.u1,rs.tm.uN,rs.tm.Ws,rs.Z)
+    rs.exps.ex = get_E_X_log(rs.tm.log_u1,rs.tm.log_uN,rs.tm.log_Ws,rs.logZ)
 
     # Get E[XX]
-    rs.eXs.exx = get_E_XX_log(rs.tm.u1,rs.tm.uN,rs.tm.Ws,rs.Z)
+    rs.exps.exx = get_E_XX_log(rs.tm.log_u1,rs.tm.log_uN,rs.tm.log_Ws,rs.logZ)
 
     # Set estimation region as processed
     rs.proc = true

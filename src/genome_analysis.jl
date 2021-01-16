@@ -457,19 +457,19 @@ function get_chr_part(chr::String,config::CpelNanoConfig,fasta::String,targ_regs
 
 end
 ###################################################################################################################
-# SUBREGION PROPERTIES
+# ANALYSIS REGION PROPERTIES
 ###################################################################################################################
 """
-    `get_sub_info(REG_STRUCT,CONFIG)`
+    `get_nls_reg_info!(REG_STRUCT,CONFIG)`
 
     Function that stores subregion information.
 
     # Examples
     ```julia-repl
-    julia> CpelNano.pmap_subregion_table(reg_int,fa_rec)
+    julia> CpelNano.get_nls_reg_info!(reg_int,fa_rec)
     ```
 """
-function get_sub_info(rs::RegStruct,config::CpelNanoConfig)::Nothing
+function get_nls_reg_info!(rs::RegStruct,config::CpelNanoConfig)::Nothing
 
     # Get size of estimation region
     reg_size = (rs.chrend-rs.chrst)+1
@@ -502,11 +502,9 @@ function get_sub_info(rs::RegStruct,config::CpelNanoConfig)::Nothing
     
     # Add chromosome start
     pushfirst!(bnds,rs.chrst)
-    print_log("$(bnds)")
     
-    # Construct subregion intervals
+    # Construct analysis region intervals
     sub_int = [bnds[i]:bnds[i+1] for i=1:k]
-    print_log("$(sub_int)")
 
     # Divide CpG sites indices
     cpg_inds = fill(0:0,k)
@@ -517,16 +515,22 @@ function get_sub_info(rs::RegStruct,config::CpelNanoConfig)::Nothing
         fst_ind = isnothing(fst_ind) ? 0 : fst_ind
         lst_ind = findlast(x->bnds[i]<=x<bnds[i+1],rs.cpg_pos)
         lst_ind = isnothing(lst_ind) ? 0 : lst_ind
-        print_log("$(fst_ind):$(lst_ind)")
 
         # Store info
-        cpg_inds[i] = fst_ind:lst_ind
+        if i<k
+            # Excluding the one on right boundary
+            cpg_inds[i] = fst_ind:lst_ind
+        else
+            # Include the CpG on right boundary if exists
+            cpg_inds[i] = fst_ind:rs.N
+        end
 
     end
-    print_log("$(cpg_inds)")
+        # print_log("$(rs.cpg_pos)")
 
     ## Store in struct
-    
+    rs.nls_rgs = AnalysisRegions(sub_int,cpg_inds)
+        # print_log("$(rs.nls_rgs)")
 
     # Return nothing
     return nothing
@@ -606,7 +610,13 @@ function pmap_subregion_table(reg_int::UnitRange{Int64},fa_rec::FASTA.Record,max
         lst_ind = isnothing(lst_ind) ? 0 : lst_ind
         
         # Store info
-        cpg_inds[i] = fst_ind:lst_ind
+        if i<k
+            # Excluding the one on right boundary
+            cpg_inds[i] = fst_ind:lst_ind
+        else
+            # Include the CpG on right boundary if exists
+            cpg_inds[i] = fst_ind:length(cpg_pos)
+        end
 
     end
     n_cpgs = length.(cpg_inds)

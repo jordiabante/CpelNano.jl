@@ -1,36 +1,4 @@
 """
-    `get_rs_lgtrck_mats!(REG_DATA)`
-
-    Computes necessary matrices for transfer matrix methods that relies on the log-sum trick.
-
-    # Examples
-    ```julia-repl
-    julia> CpelNano.get_rs_lgtrck_mats!(x)
-    ```
-"""
-function get_rs_lgtrck_mats!(rs::RegStruct)::Nothing
-
-    # Get αs & βs
-    αs,βs = get_αβ_from_ϕ(rs.ϕhat,rs)
-
-    # Get u's
-    rs.tm.u1 = get_log_u(αs[1])
-    rs.tm.uN = get_log_u(αs[end])
-
-    # Get W's
-    logWs = Vector{Array{Float64,2}}()
-    @inbounds for n=1:length(βs)
-        push!(logWs,get_log_W(αs[n],αs[n+1],βs[n]))
-    end
-
-    # Record W's
-    rs.tm.Ws = logWs
-
-    # Return nothing
-    return nothing
-
-end
-"""
     `get_rs_mats!(REG_DATA)`
 
     Computes necessary matrices for transfer matrix methods.
@@ -57,6 +25,38 @@ function get_rs_mats!(rs::RegStruct)::Nothing
 
     # Record W's
     rs.tm.Ws = Ws
+
+    # Return nothing
+    return nothing
+
+end
+"""
+    `get_rs_lgtrck_mats!(REG_DATA)`
+
+    Computes necessary matrices for transfer matrix methods that relies on the log-sum trick.
+
+    # Examples
+    ```julia-repl
+    julia> CpelNano.get_rs_lgtrck_mats!(x)
+    ```
+"""
+function get_rs_lgtrck_mats!(rs::RegStruct)::Nothing
+
+    # Get αs & βs
+    αs,βs = get_αβ_from_ϕ(rs.ϕhat,rs)
+
+    # Get u's
+    rs.tm.log_u1 = get_log_u(αs[1])
+    rs.tm.log_uN = get_log_u(αs[end])
+
+    # Get W's
+    logWs = Vector{Array{Float64,2}}()
+    @inbounds for n=1:length(βs)
+        push!(logWs,get_log_W(αs[n],αs[n+1],βs[n]))
+    end
+
+    # Record W's
+    rs.tm.log_Ws = logWs
 
     # Return nothing
     return nothing
@@ -94,7 +94,7 @@ end
 function get_rs_logZ!(rs::RegStruct)::Nothing
 
     # Store partition function
-    rs.Z = get_log_Z(rs.tm.u1,rs.tm.uN,rs.tm.Ws)
+    rs.logZ = get_log_Z(rs.tm.log_u1,rs.tm.log_uN,rs.tm.log_Ws)
 
     # Return nothing
     return nothing
@@ -107,34 +107,36 @@ end
 
     # Examples
     ```julia-repl
-    julia> CpelNano.comp_log_g_p(reg_data,p,xp)
+    julia> CpelNano.comp_log_g_p(rs,p,xp)
     ```
 """
-function comp_log_g_p(reg_data::RegStruct,p::Int64,xp::Float64)::Float64
+function comp_log_g_p(rs::RegStruct,p::Int64,xp::Float64)::Float64
 
     # If p=1 then return nothing
     p==1 && return 0.00
 
     # Get αs & βs
-    αs,βs = get_αβ_from_ϕ(reg_data.ϕhat,reg_data)
+    αs,βs = get_αβ_from_ϕ(rs.ϕhat,rs)
 
-    # Get uN'
-    uNprime = [exp(-(αs[p-1]+xp*βs[p-1])/2.0); exp(+(αs[p-1]+xp*βs[p-1])/2.0)]
+    # Get log(uN)
+    aux = (αs[p-1]+xp*βs[p-1])/2.0
+    log_uNp = [-aux,+aux]
 
     # If p=2 then return inner product of v's
-    p==2 && return log(uNprime' * uNprime)
+    p==2 && return log_vec_vec_mult(log_uNp,log_uNp)
 
-    # Get W'
-    Wprime = [
-        exp(-αs[p-2]/2.0+βs[p-2]-(αs[p-1]+xp*βs[p-1])/2.0) exp(-αs[p-2]/2.0-βs[p-2]+(αs[p-1]+xp*βs[p-1])/2.0);
-        exp(+αs[p-2]/2.0-βs[p-2]-(αs[p-1]+xp*βs[p-1])/2.0) exp(+αs[p-2]/2.0+βs[p-2]+(αs[p-1]+xp*βs[p-1])/2.0)
+    # Get log(W)
+    log_Wp = [
+        -αs[p-2]/2.0+βs[p-2]-aux -αs[p-2]/2.0-βs[p-2]+aux;
+        +αs[p-2]/2.0-βs[p-2]-aux +αs[p-2]/2.0+βs[p-2]+aux
     ]
 
     # If p=3 then return inner product of v's
-    p==3 && return log(reg_data.tm.u1' * Wprime * uNprime)
+    p==3 && return log_vec_vec_mult(log_vec_mat_mult(rs.tm.log_u1,log_Wp),log_uNp)
 
     # Return log(g1(xp))
-    return log(reg_data.tm.u1' * prod(reg_data.tm.Ws[1:(p-3)]) * Wprime * uNprime)
+    log_Ws = mult_log_mats(vcat(rs.tm.log_Ws[1:(p-3)],[log_Wp]))
+    return log_vec_vec_mult(log_vec_mat_mult(rs.tm.log_u1,log_Ws),log_uNp)
 
 end
 """
@@ -144,34 +146,36 @@ end
 
     # Examples
     ```julia-repl
-    julia> CpelNano.comp_log_g_q(reg_data,q,xq)
+    julia> CpelNano.comp_log_g_q(rs,q,xq)
     ```
 """
-function comp_log_g_q(reg_data::RegStruct,q::Int64,xq::Float64)::Float64
+function comp_log_g_q(rs::RegStruct,q::Int64,xq::Float64)::Float64
 
-    # If q=N then return nothing
-    q==reg_data.L && return 0.00
+    # If q=N(=L after re-scaling) then return log(1)
+    q==rs.L && return 0.00
 
     # Get αs & βs
-    αs,βs = get_αβ_from_ϕ(reg_data.ϕhat,reg_data)
+    αs,βs = get_αβ_from_ϕ(rs.ϕhat,rs)
     
-    # Get u1'
-    u1prime = [exp(-(αs[q+1]+xq*βs[q])/2.0); exp(+(αs[q+1]+xq*βs[q])/2.0)]
+    # Get log(u1)
+    aux = (αs[q+1]+xq*βs[q])/2.0
+    log_u1p = [-aux; +aux]
 
     # If q=N-1 then return inner product of v's
-    q==reg_data.L-1 && return log(u1prime' * u1prime)
+    q==rs.L-1 && return log_vec_vec_mult(log_u1p,log_u1p)
 
-    # Get W'
-    Wprime = [
-        exp(-(αs[q+1]+xq*βs[q])/2.0+βs[q+1]-αs[q+2]/2.0) exp(-(αs[q+1]+xq*βs[q])/2.0-βs[q+1]+αs[q+2]/2.0);
-        exp(+(αs[q+1]+xq*βs[q])/2.0-βs[q+1]-αs[q+2]/2.0) exp(+(αs[q+1]+xq*βs[q])/2.0+βs[q+1]+αs[q+2]/2.0)
+    # Get Wp
+    log_Wp = [
+        -aux+βs[q+1]-αs[q+2]/2.0 -aux-βs[q+1]+αs[q+2]/2.0;
+        +aux-βs[q+1]-αs[q+2]/2.0 +aux+βs[q+1]+αs[q+2]/2.0
     ]
 
     # If q=N-2 then return inner product of v's
-    q==reg_data.L-2 && return log(u1prime' * Wprime * reg_data.tm.uN)
+    q==rs.L-2 && return log_vec_vec_mult(log_vec_mat_mult(log_u1p,log_Wp),rs.tm.log_uN)
 
     # Return log(g2(xq))
-    return log(u1prime' * Wprime * prod(reg_data.tm.Ws[(q+2):end]) * reg_data.tm.uN)
+    log_Ws = mult_log_mats(vcat([log_Wp],rs.tm.log_Ws[(q+2):end]))
+    return log_vec_vec_mult(log_vec_mat_mult(log_u1p,log_Ws),rs.tm.log_uN)
 
 end
 """
@@ -181,26 +185,106 @@ end
 
     # Examples
     ```julia-repl
-    julia> CpelNano.get_log_gs!(reg_data)
+    julia> CpelNano.get_log_gs!(rs)
     ```
 """
-function get_log_gs!(reg_data::RegStruct)::Nothing
+function get_log_gs!(rs::RegStruct)::Nothing
 
-    # Loop over α-subregions
-    for k=1:length(reg_data.𝒜s)
+    # Loop over analysis regions
+    for k=1:rs.nls_rgs.num
 
         # Get p and q
-        p = minimum(reg_data.𝒜s[k])
-        q = maximum(reg_data.𝒜s[k])
+        p = minimum(rs.nls_rgs.cpg_ind[k])
+        q = maximum(rs.nls_rgs.cpg_ind[k])
 
-        # Compute g1(±x_p)
-        push!(reg_data.tm.log_gs.pm,comp_log_g_p(reg_data,p,-1.0))
-        push!(reg_data.tm.log_gs.pp,comp_log_g_p(reg_data,p,+1.0))
+        if p!=0 && q!=0
+            # Compute log g1(±x_p) & log g2(±x_q)
+            push!(rs.tm.log_gs.pm,comp_log_g_p(rs,p,-1.0))
+            push!(rs.tm.log_gs.pp,comp_log_g_p(rs,p,+1.0))
+            push!(rs.tm.log_gs.qm,comp_log_g_q(rs,q,-1.0))
+            push!(rs.tm.log_gs.qp,comp_log_g_q(rs,q,+1.0))
+        else
+            # Push NaN
+            push!(rs.tm.log_gs.pm,NaN)
+            push!(rs.tm.log_gs.pp,NaN)
+            push!(rs.tm.log_gs.qm,NaN)
+            push!(rs.tm.log_gs.qp,NaN)
+        end
 
-        # Compute g2(±x_q)
-        push!(reg_data.tm.log_gs.qm,comp_log_g_q(reg_data,q,-1.0))
-        push!(reg_data.tm.log_gs.qp,comp_log_g_q(reg_data,q,+1.0))
+    end
 
+    # Return nothing
+    return nothing
+
+end
+"""
+
+    `get_exp_log_g1!(RS_DATA)`
+    
+    Computes E[log(g1(Xp))] for all analysis regions using the transfer matrix method and log-trick.
+    
+    # Examples
+    ```julia-repl
+    julia> CpelNano.get_exp_log_g1!(rs)
+    ```
+"""
+function get_exp_log_g1!(rs::RegStruct)::Nothing
+
+    # Loop over analysis regions
+    rs.exps.log_g1 = fill(NaN,rs.nls_rgs.num)
+    @inbounds for k=1:rs.nls_rgs.num
+        # Get index
+        p = minimum(rs.nls_rgs.cpg_ind[k])
+        # Continue if no CpG sites
+        p==0 && continue
+        # Compute expectation
+        if p==1
+            # If first CpG site (can happen k>1)
+            rs.exps.log_g1[k] = 0.0
+        else
+            # Compute
+            logD = log.([rs.tm.log_gs.pm[k] 0.0;0.0 rs.tm.log_gs.pp[k]])
+            log_WsDWs = mult_log_mats(vcat(rs.tm.log_Ws[1:(p-1)],[logD],rs.tm.log_Ws[p:end]))
+            log_u1WsDWs = log_vec_mat_mult(rs.tm.log_u1,log_WsDWs)
+            rs.exps.log_g1[k] = exp(log_vec_vec_mult(log_u1WsDWs,rs.tm.log_uN)-rs.logZ)
+        end
+    end
+
+    # Return nothing
+    return nothing
+
+end
+"""
+
+    `get_exp_log_g2!(RS_DATA)`
+    
+    Computes E[log(g2(Xq))] for all analysis regions using the transfer matrix method and log-trick.
+    
+    # Examples
+    ```julia-repl
+    julia> CpelNano.get_exp_log_g2!(rs)
+    ```
+"""
+function get_exp_log_g2!(rs::RegStruct)::Nothing
+
+    # Loop over analysis regions
+    rs.exps.log_g2 = fill(NaN,rs.nls_rgs.num)
+    @inbounds for k=1:rs.nls_rgs.num
+        # Get index
+        q = maximum(rs.nls_rgs.cpg_ind[k])
+        # Continue if no CpG sites
+        q==0 && continue
+        # Compute expectation
+        if q==rs.N
+            # If last CpG site (can happen k<K)
+            rs.exps.log_g2[k] = 0.0
+        else
+            # Compute
+            logD = log.([rs.tm.log_gs.qm[k] 0.0;0.0 rs.tm.log_gs.qp[k]])
+            log_WsDWs = mult_log_mats(vcat(rs.tm.log_Ws[1:(q-1)],[logD],rs.tm.log_Ws[q:end]))
+            log_u1WsDWs = log_vec_mat_mult(rs.tm.log_u1,log_WsDWs)
+            rs.exps.log_g2[k] = exp(log_vec_vec_mult(log_u1WsDWs,rs.tm.log_uN)-rs.logZ)
+        end
     end
 
     # Return nothing
@@ -214,29 +298,22 @@ end
 
     # Examples
     ```julia-repl
-    julia> 𝒜s=[1:20]; ℬs=[1:19]; ϕ=[0.0,0.0]; x=CpelNano.RegStruct([],ϕ,𝒜s,ℬs);
-    julia> CpelNano.get_∇logZ!(x); CpelNano.get_rs_mats!(x); CpelNano.get_Z!(x); CpelNano.comp_mml!(x);
-    julia> x.mml
-    1-element Array{Float64,1}:
-     0.5
-    julia> 𝒜s=[1:5,6:10,11:15,16:20]; ℬs=[1:9,10:19];
-    julia> ϕ=[0.0,0.0,0.0,0.0,0.0,0.0]; x=CpelNano.RegStruct([],ϕ,𝒜s,ℬs);
-    julia> CpelNano.get_∇logZ!(x); CpelNano.get_rs_mats!(x); CpelNano.get_Z!(x); CpelNano.comp_mml!(x);
-    julia> x.mml
-    1-element Array{Float64,1}:
-     0.5
-     0.5
-     0.5
-     0.5
+    julia> CpelNano.comp_mml!(rs) 
     ```
 """
-function comp_mml!(reg_data::RegStruct)::Nothing
+function comp_mml!(rs::RegStruct)::Nothing
 
-    # Get αs & βs
-    αs,βs = get_αβ_from_ϕ(reg_data.ϕhat,reg_data)
-
-    # Set MML vector
-    reg_data.mml = 0.5 .* (reg_data.∇logZ[1:length(reg_data.𝒜s)]./length.(reg_data.𝒜s) .+ 1.0)
+    # Loop over analysis regions
+    rs.mml = fill(NaN,rs.nls_rgs.num)
+    for k=1:rs.nls_rgs.num
+        # Check analysis region has CpG sites
+        p = minimum(rs.nls_rgs.cpg_ind[k])
+        p==0 && continue
+        # Check number of CpG sites
+        Nk = length(rs.nls_rgs.cpg_ind[k])
+        # Set MML vector
+        rs.mml[k] = 0.5/Nk * (Nk + sum(rs.exps.ex[rs.nls_rgs.cpg_ind[k]]))
+    end
 
     # Return nothing
     return nothing
@@ -245,118 +322,36 @@ end
 """
     `comp_nme!(REG_DATA)`
 
-    Function that computes normalized methylation entropy (NME).
-
-    # Examples
-    ```julia-repl
-    julia> 𝒜s=[1:20]; ℬs=[1:19]; ϕ=[0.0,0.0]; x=CpelNano.RegStruct([],ϕ,𝒜s,ℬs);
-    julia> CpelNano.get_∇logZ!(x); CpelNano.get_rs_mats!(x); CpelNano.get_Z!(x); CpelNano.comp_nme!(x);
-    julia> x.nme
-    1.0
-    julia> 𝒜s=[1:5,6:10,11:15,16:20]; ℬs=[1:9,10:19];
-    julia> ϕ=[0.0,0.0,0.0,0.0,0.0,0.0]; x=CpelNano.RegStruct([],ϕ,𝒜s,ℬs);
-    julia> CpelNano.get_∇logZ!(x); CpelNano.get_rs_mats!(x); CpelNano.get_Z!(x); CpelNano.comp_nme!(x);
-    julia> x.nme
-    1.0
-    ```
-"""
-function comp_nme!(reg_data::RegStruct)::Nothing
-
-    # Set NME
-    reg_data.nme = (log(reg_data.Z)-reg_data.ϕhat'*reg_data.∇logZ)/(reg_data.L*LOG2)
-
-    # Cap at one
-    reg_data.nme = min.(1.0,reg_data.nme)
-
-    # Return nothing
-    return nothing
-
-end
-"""
-    `comp_nme_vec!(REG_DATA)`
-
     Function that computes normalized methylation entropy vector (NMEV).
 
     # Examples
     ```julia-repl
-    julia> 𝒜s=[1:20]; ℬs=[1:19]; ϕ=[0.0,0.0]; x=CpelNano.RegStruct([],ϕ,𝒜s,ℬs);
-    julia> CpelNano.get_∇logZ!(x); CpelNano.get_rs_mats!(x); CpelNano.get_Z!(x); 
-    julia> CpelNano.get_log_gs!(x); CpelNano.comp_nme_vec!(x);
-    julia> x.nme_vec
-    1-element Array{Float64,1}:
-     1.0
-    julia> 𝒜s=[1:5,6:10,11:15,16:20]; ℬs=[1:9,10:19];
-    julia> ϕ=[0.0,0.0,0.0,0.0,0.0,0.0]; x=CpelNano.RegStruct([],ϕ,𝒜s,ℬs);
-    julia> CpelNano.get_∇logZ!(x); CpelNano.get_rs_mats!(x); CpelNano.get_Z!(x);
-    julia> CpelNano.get_log_gs!(x); CpelNano.comp_nme_vec!(x);
-    julia> x.nme_vec
-    4-element Array{Float64,1}:
-     1.0
-     1.0
-     1.0
-     1.0
+    julia> CpelNano.comp_nme!(rs)
     ```
 """
-function comp_nme_vec!(dat::RegStruct)::Nothing
+function comp_nme!(rs::RegStruct)::Nothing
 
     # Get αs & βs
-    K1 = length(dat.𝒜s)
-    αs,βs = get_αβ_from_ϕ(dat.ϕhat,dat)
-
-    # Get E[X]
-    ex = get_E_X(dat.tm.u1,dat.tm.uN,dat.tm.Ws,dat.Z)
-
-    # Get E[XX]
-    exx = get_E_XX(dat.tm.u1,dat.tm.uN,dat.tm.Ws,dat.Z)
-
-    # Get uniformly scaled matrices
-    Ws = US * dat.tm.Ws
-
-    # Get scaled partition function Z
-    Zs = dat.tm.u1' * prod(Ws) * dat.tm.uN
+    αs,βs = get_αβ_from_ϕ(rs.ϕhat,rs)
 
     # Loop over subregions
-    @inbounds for k=1:K1
+    rs.nme = fill(NaN,rs.nls_rgs.num)
+    @inbounds for k=1:rs.nls_rgs.num
 
-        # Get p and q
-        p = minimum(dat.𝒜s[k])
-        q = maximum(dat.𝒜s[k])
-            # print_log("k=$(k); p=$(p); q=$(q)")
-        
-        # Create V matrix
-        Vp = [dat.tm.log_gs.pm[k] 0.0; 0.0 dat.tm.log_gs.pp[k]]
-        Vq = [dat.tm.log_gs.qm[k] 0.0; 0.0 dat.tm.log_gs.qp[k]]
-
-        # Compute E[log(g1(Xp))]
-        if p==1
-            aux1 = 0.0
-        elseif p==dat.L
-            aux1 = dat.tm.u1' * prod(Ws) * Vp * dat.tm.uN / Zs
-        else
-            aux1 = dat.tm.u1' * prod(Ws[1:(p-1)]) * Vp * prod(Ws[p:end]) * dat.tm.uN / Zs
-        end
-
-        # Compute E[log(g2(Xq))]
-        if q==dat.L
-            aux2 = 0.0
-        elseif q==1
-            aux2 = dat.tm.u1' * Vq * prod(Ws) * dat.tm.uN / Zs
-        else
-            aux2 = dat.tm.u1' * prod(Ws[1:(q-1)]) * Vq * prod(Ws[q:end]) * dat.tm.uN / Zs
-        end
+        # Get indices
+        p = minimum(rs.nls_rgs.cpg_ind[k])
+        q = maximum(rs.nls_rgs.cpg_ind[k])
+        p==q==0 && continue
 
         # Add terms and normalize
-        nme = log(dat.Z)-aux1-aux2-αs[p:q]'*ex[p:q]
-        nme += p==q ? 0.0 : -βs[p:(q-1)]'*exx[p:(q-1)]
+        nme = rs.logZ - rs.exps.log_g1[k] - rs.exps.log_g2[k] - αs[p:q]'*rs.exps.ex[p:q]
+        nme += p==q ? 0.0 : - βs[p:(q-1)]' * rs.exps.exx[p:(q-1)]
         nme /= (q-p+1)*LOG2
         
-        # Push
-        push!(dat.nme_vec,nme)
+        # Store
+        rs.nme[k] = nme
         
     end
-
-    # Cap at one
-    dat.nme_vec = min.(1.0,max.(0.0,dat.nme_vec))
 
     # Return nothing
     return nothing

@@ -162,7 +162,6 @@ function pmap_analyze_reg(reg_int::UnitRange{Int64},chr::String,nano::String,fa_
         # readline()
 
     ## Re-scale to per cpg site resolution
-
     rscle_grp_mod!(rs)
     config.verbose && print_log("rs.Nl: $(rs.Nl)")
     
@@ -175,31 +174,30 @@ function pmap_analyze_reg(reg_int::UnitRange{Int64},chr::String,nano::String,fa_
     get_rs_logZ!(rs)
 
     # Get E[X]
-    rs.eXs.ex = get_E_X_log(rs.tm.u1,rs.tm.uN,rs.tm.Ws,rs.Z)
+    rs.exps.ex = get_E_X_log(rs.tm.log_u1,rs.tm.log_uN,rs.tm.log_Ws,rs.logZ)
 
     # Get E[XX]
-    rs.eXs.exx = get_E_XX_log(rs.tm.u1,rs.tm.uN,rs.tm.Ws,rs.Z)
+    rs.exps.exx = get_E_XX_log(rs.tm.log_u1,rs.tm.log_uN,rs.tm.log_Ws,rs.logZ)
 
-    # get_∇logZ!(rs)
-        # print_log("∇logZ: $(rs.∇logZ)")
-    
-    # Store partition function
-    # get_Z!(rs)
-        # print_log("Z: $(rs.Z)")
-        # readline()
+    # Analysis region information
+    get_nls_reg_info!(rs,config)
 
     # Store log(g_i(±⋅))
-    # get_log_gs!(rs)
+    get_log_gs!(rs)
+
+    # Compute expectations
+    get_exp_log_g1!(rs)
+    get_exp_log_g2!(rs)
 
     ## Compute output
 
     # Compute μ(X)
-    # comp_mml!(rs)
+    comp_mml!(rs)
         # print_log("μ: $(rs.mml)")
 
     # Compute h(X)
-    # comp_nme_vec!(rs)
-        # print_log("h: $(rs.nme_vec)")
+    comp_nme!(rs)
+        # print_log("h: $(rs.nme)")
         # readline()
 
     # Set estimation region as processed
@@ -322,8 +320,8 @@ function pmap_nano_smp_est(reg_int::UnitRange{Int64},chr::String,nano::String,fa
 
     ## Compute sample averages
     comp_smp_exps!(rs)
-    config.verbose && print_log("E[X]: $(rs.eXs.ex)")
-    config.verbose && print_log("E[XX]: $(rs.eXs.exx)")
+    config.verbose && print_log("E[X]: $(rs.exps.ex)")
+    config.verbose && print_log("E[XX]: $(rs.exps.exx)")
         # config.verbose && readline()
 
     # Set estimation region as processed
