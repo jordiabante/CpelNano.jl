@@ -4,24 +4,21 @@
 # DeepSimulator: R9.4 pore model
 #################################################################################################
 ## Deps
-using StatsPlots
-using Distributions
-using DelimitedFiles
+using Distributed
+@everywhere using StatsPlots
+@everywhere using Distributions
+@everywhere using DelimitedFiles
 
 ## Constants
 #const data_dir = "/Users/jordiabante/OneDrive - Johns Hopkins/CpelNano/Data/Simulations/Caller-Error/"
 const data_dir = "/Users/sandeepk/Downloads/Caller-Error"
-const noise_levels = [0.5,1.0,1.5,2.0,2.5,3.0,3.5]
+const noise_levels = [0.5,1.0,1.5,2.0,2.5,3.0]
 const blind_friend_col = ["#999999","#E69F00","#56B4E9","#009E73","#F0E442","#0072B2","#D55E00","#CC79A7"]
 const color_code = Dict("nanopolish" => blind_friend_col[1],"deepsignal" => blind_friend_col[end], "megalodon" => blind_friend_col[2])
-const nanopolish_thresholds = [-500.0:1:500.0;]
-const deepsignal_thresholds = [0.0:0.001:1.0;]
-const caller_thresholds = Dict("nanopolish" => nanopolish_thresholds, "deepsignal" => deepsignal_thresholds, 
-                            "megalodon" => deepsignal_thresholds)
-const color_code_noise = Dict(0.5 => blind_friend_col[1],1.0 => blind_friend_col[2], 1.5 => blind_friend_col[3],
-                                    2.0 => blind_friend_col[4], 2.5 => blind_friend_col[5], 3.0 => blind_friend_col[6],
-                                    3.5 => blind_friend_col[7])
-
+const nanopolish_thresholds = collect(-500.0:1:500.0)
+const deepsignal_thresholds = collect(0.0:0.001:1.0)
+const caller_thresholds = Dict("nanopolish" => nanopolish_thresholds, "deepsignal" => deepsignal_thresholds,"megalodon" => deepsignal_thresholds)
+const color_code_noise = Dict(0.5 => blind_friend_col[1],1.0 => blind_friend_col[2], 1.5 => blind_friend_col[3],2.0 => blind_friend_col[4], 2.5 => blind_friend_col[5], 3.0 => blind_friend_col[6])
 
 ## Default attributes
 default(titlefont=(14,"arial"),guidefont=(16,"arial"),tickfont=(12,"arial"))
@@ -38,7 +35,7 @@ function trans_data(in_data)
 end
 
 # Function to threshold calls
-function thresh_calls(true_x, conf_x, thresh, caller)
+function thresh_calls(true_x, conf_x, thresh)
 
     out_true_x = []
     out_conf_x = []
@@ -90,7 +87,7 @@ function comp_sens(truth,pred)
     if length(truth[pos_ind]) != 0
         true_pos = sum(truth[pos_ind].==pred[pos_ind])
     else
-        return 0
+        return 0.0
     end
 
     # Return sensitivity
@@ -108,11 +105,39 @@ function comp_spec(truth,pred)
     if length(truth[neg_ind]) != 0
         true_neg = sum(truth[neg_ind].==pred[neg_ind])
     else
-        return 0
+        return 0.0
     end
     
     # Return specificity
     return true_neg/sum(truth.==-1)
+
+end
+
+function pmap_noise_ex(caller,s)
+    
+    # Read in 
+    in_data = readdlm("$(data_dir)/$(caller)/noise_$(s)_$(caller)_tuples.txt")
+
+    # Get data 
+    true_x = in_data[:,1]
+    pred_x = in_data[:,3]
+
+    # Return tuple
+    return comp_accu(true_x,pred_x),comp_prec(true_x,pred_x),comp_sens(true_x,pred_x),comp_spec(true_x,pred_x)
+
+end
+
+function pmap_noise_exx(caller,s)
+    
+    # Read in 
+    in_data = readdlm("$(data_dir)/$(caller)/noise_$(s)_$(caller)_tuples.txt")
+
+    # Get covariances 
+    true_xx = in_data[1:(end-1),1] .* in_data[2:end,1]
+    pred_xx = in_data[1:(end-1),3] .* in_data[2:end,3]
+
+    # Return tuple
+    return comp_accu(true_xx,pred_xx),comp_prec(true_xx,pred_xx),comp_sens(true_xx,pred_xx),comp_spec(true_xx,pred_xx)
 
 end
 
@@ -129,30 +154,14 @@ p4 = plot(xlabel="Gaussian Noise at signal-level (\\sigma)",ylabel="Specificity 
 for caller in keys(color_code)
 
     # Get error in call
-    accu_vec = []
-    prec_vec = []
-    sens_vec = []
-    spec_vec = []
-    for s in noise_levels
-        
-        # Read in 
-        in_data = readdlm("$(data_dir)/$(caller)/noise_$(s)_$(caller)_tuples.txt")
-        
-        # Transform {0,1}→{-1,1}
-        in_data = trans_data(in_data)
-        
-        # Get covariances 
-        true_x = in_data[:,1]
-        pred_x = in_data[:,3]
+    pmap_out = pmap(s->pmap_noise_ex(caller,s) ,noise_levels)
+    
+    # Unravel pmap out
+    accu_vec = [x[1] for x in pmap_out]
+    prec_vec = [x[2] for x in pmap_out]
+    sens_vec = [x[3] for x in pmap_out]
+    spec_vec = [x[4] for x in pmap_out]
 
-        # Compute quantities
-        push!(accu_vec,comp_accu(true_x,pred_x))
-        push!(prec_vec,comp_prec(true_x,pred_x))
-        push!(sens_vec,comp_sens(true_x,pred_x))
-        push!(spec_vec,comp_spec(true_x,pred_x))
-    
-    end
-    
     # Update plot
     col = color_code[caller]
     plot!(p1,noise_levels,accu_vec*100,seriestype=:scatter,markershape=:circle,color=col,label=caller)
@@ -168,6 +177,7 @@ end
 
 # The sd that corresponds to the real base-calling accuracy (87%-90%) is σ=2.0-2.5
 p_x = plot(p1,p2,p3,p4,layout=(4,1),size=(600,900))
+savefig("/Users/jordiabante/Desktop/Benchmark-Callers-EX.pdf")
 
 #################################################################################################
 # Performance of methylation callers with X_{n}⋅X_{n+1}
@@ -183,29 +193,13 @@ p4 = plot(xlabel="Gaussian Noise at signal-level (\\sigma)",ylabel="Specificity 
 for caller in keys(color_code)
 
     # Get error in call
-    accu_vec = []
-    prec_vec = []
-    sens_vec = []
-    spec_vec = []
-    for s in noise_levels
-        
-        # Read in 
-        in_data = readdlm("$(data_dir)/$(caller)/noise_$(s)_$(caller)_tuples.txt")
-        
-        # Transform {0,1}→{-1,1}
-        in_data = trans_data(in_data)
-        
-        # Get covariances 
-        true_xx = in_data[1:(end-1),1] .* in_data[2:end,1]
-        pred_xx = in_data[1:(end-1),3] .* in_data[2:end,3]
-        
-        # Compute quantities
-        push!(accu_vec,comp_accu(true_xx,pred_xx))
-        push!(prec_vec,comp_prec(true_xx,pred_xx))
-        push!(sens_vec,comp_sens(true_xx,pred_xx))
-        push!(spec_vec,comp_spec(true_xx,pred_xx))
+    pmap_out = pmap(s->pmap_noise_exx(caller,s) ,noise_levels)
     
-    end
+    # Unravel pmap out
+    accu_vec = [x[1] for x in pmap_out]
+    prec_vec = [x[2] for x in pmap_out]
+    sens_vec = [x[3] for x in pmap_out]
+    spec_vec = [x[4] for x in pmap_out]
     
     # Update plot
     col = color_code[caller]
@@ -222,10 +216,7 @@ end
 
 # The sd that corresponds to the real base-calling accuracy (87%-90%) is σ=2.0-2.5
 p_xx = plot(p1,p2,p3,p4,layout=(4,1),size=(600,900))
-
-# Plot both
-plot(p_x,p_xx,layout=(1,2),size=(1200,900))
-savefig("/Users/jordiabante/Desktop/Benchmark-Callers.pdf")
+savefig("/Users/jordiabante/Desktop/Benchmark-Callers-EXX.pdf")
 
 #################################################################################################
 # ROC & AUC with X_{n}
