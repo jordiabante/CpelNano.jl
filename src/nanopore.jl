@@ -173,21 +173,18 @@ function pmap_analyze_reg(reg_int::UnitRange{Int64},chr::String,nano::String,fa_
     # Store partition function
     get_rs_logZ!(rs)
 
-    # Get E[X]
-    rs.exps.ex = get_E_X_log(rs.tm.log_u1,rs.tm.log_uN,rs.tm.log_Ws,rs.logZ)
-
-    # Get E[XX]
-    rs.exps.exx = get_E_XX_log(rs.tm.log_u1,rs.tm.log_uN,rs.tm.log_Ws,rs.logZ)
+    # Get E[X] & E[XX]
+    get_rs_exps!(rs)
 
     # Analysis region information
     get_nls_reg_info!(rs,config)
 
     # Store log(g_i(±⋅))
-    get_log_gs!(rs)
+    get_rs_log_gs!(rs)
 
-    # Compute expectations
-    get_exp_log_g1!(rs)
-    get_exp_log_g2!(rs)
+    # Compute expectations E[log g(X)]
+    get_rs_exp_log_g1!(rs)
+    get_rs_exp_log_g2!(rs)
 
     ## Compute output
 

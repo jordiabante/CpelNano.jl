@@ -63,25 +63,6 @@ function get_rs_lgtrck_mats!(rs::RegStruct)::Nothing
 
 end
 """
-    `get_Z!(REG_DATA)`
-
-    Computes and stores partition function.
-
-    # Examples
-    ```julia-repl
-    julia> CpelNano.get_Z!(x)
-    ```
-"""
-function get_Z!(rs::RegStruct)::Nothing
-
-    # Store partition function
-    rs.Z = get_Z(rs.tm.u1,rs.tm.uN,rs.tm.Ws)
-
-    # Return nothing
-    return nothing
-
-end
-"""
     `get_rs_logZ!(REG_DATA)`
 
     Computes and stores the (log) partition function using log-sum trick transfer matrix.
@@ -179,19 +160,19 @@ function comp_log_g_q(rs::RegStruct,q::Int64,xq::Float64)::Float64
 
 end
 """
-    `get_log_gs!(REG_DATA)`
+    `get_rs_log_gs!(REG_DATA)`
 
     Computes and stores log(g_i(±⋅)) values.
 
     # Examples
     ```julia-repl
-    julia> CpelNano.get_log_gs!(rs)
+    julia> CpelNano.get_rs_log_gs!(rs)
     ```
 """
-function get_log_gs!(rs::RegStruct)::Nothing
+function get_rs_log_gs!(rs::RegStruct)::Nothing
 
     # Loop over analysis regions
-    for k=1:rs.nls_rgs.num
+    @inbounds for k=1:rs.nls_rgs.num
 
         # Get p and q
         p = minimum(rs.nls_rgs.cpg_ind[k])
@@ -219,30 +200,29 @@ function get_log_gs!(rs::RegStruct)::Nothing
 end
 """
 
-    `get_exp_log_g1!(RS_DATA)`
+    `get_rs_exp_log_g1!(RS_DATA)`
     
     Computes E[log(g1(Xp))] for all analysis regions using the transfer matrix method and log-trick.
     
     # Examples
     ```julia-repl
-    julia> CpelNano.get_exp_log_g1!(rs)
+    julia> CpelNano.get_rs_exp_log_g1!(rs)
     ```
 """
-function get_exp_log_g1!(rs::RegStruct)::Nothing
+function get_rs_exp_log_g1!(rs::RegStruct)::Nothing
 
     # Loop over analysis regions
     rs.exps.log_g1 = fill(NaN,rs.nls_rgs.num)
     @inbounds for k=1:rs.nls_rgs.num
-        # Get index
+        # Get index & next if no CpG sites
         p = minimum(rs.nls_rgs.cpg_ind[k])
-        # Continue if no CpG sites
         p==0 && continue
         # Compute expectation
         if p==1
             # If first CpG site (can happen k>1)
             rs.exps.log_g1[k] = 0.0
         else
-            # Compute
+            # Compute expectation using TM (using marginal seems to be unstable)
             logD = log.([rs.tm.log_gs.pm[k] 0.0;0.0 rs.tm.log_gs.pp[k]])
             log_WsDWs = mult_log_mats(vcat(rs.tm.log_Ws[1:(p-1)],[logD],rs.tm.log_Ws[p:end]))
             log_u1WsDWs = log_vec_mat_mult(rs.tm.log_u1,log_WsDWs)
@@ -256,30 +236,65 @@ function get_exp_log_g1!(rs::RegStruct)::Nothing
 end
 """
 
-    `get_exp_log_g2!(RS_DATA)`
+    `comp_crs_exps_log_g1(RS,RS_MIX)`
+    
+    Computes E[log(g1(Xp;θ̃));θi] for all analysis regions using the transfer matrix method and log-trick.
+    
+    # Examples
+    ```julia-repl
+    julia> CpelNano.comp_crs_exps_log_g1(rs,rs_mix)
+    ```
+"""
+function comp_crs_exps_log_g1(rs::RegStruct,rs_mix::RegStruct)::Vector{Float64}
+
+    # Loop over analysis regions
+    exps_log_g1 = fill(NaN,rs.nls_rgs.num)
+    @inbounds for k=1:rs.nls_rgs.num
+        # Get index & next if no CpG sites
+        p = minimum(rs.nls_rgs.cpg_ind[k])
+        p==0 && continue
+        # Compute expectation
+        if p==1
+            # If first CpG site (can happen k>1)
+            exps_log_g1[k] = 0.0
+        else
+            # Compute expectation using TM (using marginal seems to be unstable)
+            logD = log.([rs_mix.tm.log_gs.pm[k] 0.0;0.0 rs_mix.tm.log_gs.pp[k]])
+            log_WsDWs = mult_log_mats(vcat(rs.tm.log_Ws[1:(p-1)],[logD],rs.tm.log_Ws[p:end]))
+            log_u1WsDWs = log_vec_mat_mult(rs.tm.log_u1,log_WsDWs)
+            exps_log_g1[k] = exp(log_vec_vec_mult(log_u1WsDWs,rs.tm.log_uN)-rs.logZ)
+        end
+    end
+
+    # Return vector
+    return exps_log_g1
+
+end
+"""
+
+    `get_rs_exp_log_g2!(RS_DATA)`
     
     Computes E[log(g2(Xq))] for all analysis regions using the transfer matrix method and log-trick.
     
     # Examples
     ```julia-repl
-    julia> CpelNano.get_exp_log_g2!(rs)
+    julia> CpelNano.get_rs_exp_log_g2!(rs)
     ```
 """
-function get_exp_log_g2!(rs::RegStruct)::Nothing
+function get_rs_exp_log_g2!(rs::RegStruct)::Nothing
 
     # Loop over analysis regions
     rs.exps.log_g2 = fill(NaN,rs.nls_rgs.num)
     @inbounds for k=1:rs.nls_rgs.num
-        # Get index
+        # Get index & next if no CpG sites
         q = maximum(rs.nls_rgs.cpg_ind[k])
-        # Continue if no CpG sites
         q==0 && continue
         # Compute expectation
         if q==rs.N
             # If last CpG site (can happen k<K)
             rs.exps.log_g2[k] = 0.0
         else
-            # Compute
+            # Compute expectation using TM (using marginal seems to be unstable)
             logD = log.([rs.tm.log_gs.qm[k] 0.0;0.0 rs.tm.log_gs.qp[k]])
             log_WsDWs = mult_log_mats(vcat(rs.tm.log_Ws[1:(q-1)],[logD],rs.tm.log_Ws[q:end]))
             log_u1WsDWs = log_vec_mat_mult(rs.tm.log_u1,log_WsDWs)
@@ -289,6 +304,42 @@ function get_exp_log_g2!(rs::RegStruct)::Nothing
 
     # Return nothing
     return nothing
+
+end
+"""
+
+    `comp_crs_exps_log_g2(RS,RS_MIX)`
+    
+    Computes E[log(g2(Xq;θ̃));θi] for all analysis regions using the transfer matrix method and log-trick.
+    
+    # Examples
+    ```julia-repl
+    julia> CpelNano.comp_crs_exps_log_g2(rs,rs_mix)
+    ```
+"""
+function comp_crs_exps_log_g2(rs::RegStruct,rs_mix::RegStruct)::Vector{Float64}
+
+    # Loop over analysis regions
+    exps_log_g2 = fill(NaN,rs.nls_rgs.num)
+    @inbounds for k=1:rs.nls_rgs.num
+        # Get index & next if no CpG sites
+        q = maximum(rs.nls_rgs.cpg_ind[k])
+        q==0 && continue
+        # Compute expectation
+        if q==rs.N
+            # If last CpG site (can happen k<K)
+            exps_log_g2[k] = 0.0
+        else
+            # Compute expectation using TM (using marginal seems to be unstable)
+            logD = log.([rs_mix.tm.log_gs.qm[k] 0.0;0.0 rs_mix.tm.log_gs.qp[k]])
+            log_WsDWs = mult_log_mats(vcat(rs.tm.log_Ws[1:(q-1)],[logD],rs.tm.log_Ws[q:end]))
+            log_u1WsDWs = log_vec_mat_mult(rs.tm.log_u1,log_WsDWs)
+            exps_log_g2[k] = exp(log_vec_vec_mult(log_u1WsDWs,rs.tm.log_uN)-rs.logZ)
+        end
+    end
+
+    # Return vector
+    return exps_log_g2
 
 end
 """
@@ -305,14 +356,18 @@ function comp_mml!(rs::RegStruct)::Nothing
 
     # Loop over analysis regions
     rs.mml = fill(NaN,rs.nls_rgs.num)
-    for k=1:rs.nls_rgs.num
+    @inbounds for k=1:rs.nls_rgs.num
+
         # Check analysis region has CpG sites
         p = minimum(rs.nls_rgs.cpg_ind[k])
         p==0 && continue
+        
         # Check number of CpG sites
         Nk = length(rs.nls_rgs.cpg_ind[k])
+        
         # Set MML vector
         rs.mml[k] = 0.5/Nk * (Nk + sum(rs.exps.ex[rs.nls_rgs.cpg_ind[k]]))
+
     end
 
     # Return nothing
@@ -322,7 +377,8 @@ end
 """
     `comp_nme!(REG_DATA)`
 
-    Function that computes normalized methylation entropy vector (NMEV).
+    Function that computes normalized methylation entropy (NME) vector for each analysis 
+    region in the estimation region.
 
     # Examples
     ```julia-repl
@@ -334,7 +390,7 @@ function comp_nme!(rs::RegStruct)::Nothing
     # Get αs & βs
     αs,βs = get_αβ_from_ϕ(rs.ϕhat,rs)
 
-    # Loop over subregions
+    # Loop over analysis regions
     rs.nme = fill(NaN,rs.nls_rgs.num)
     @inbounds for k=1:rs.nls_rgs.num
 
@@ -358,202 +414,121 @@ function comp_nme!(rs::RegStruct)::Nothing
 
 end
 """
-    `comp_gjsd(REG_DATA_1,REG_DATA_2)`
+    `comp_crs_ent(RS,RS_MIX)`
 
-    Function that computes the normalized generalised Jensen-Shannon divergence over
-    the entire analysis region.
-
-    # Examples
-    ```julia-repl
-    julia> 𝒜s=[1:20]; ℬs=[1:19]; ϕ=[0.0,0.0]; x=CpelNano.RegStruct([],ϕ,𝒜s,ℬs);
-    julia> CpelNano.get_∇logZ!(x); CpelNano.get_rs_mats!(x); CpelNano.get_Z!(x); CpelNano.comp_nme_vec!(x);
-    julia> CpelNano.comp_gjsd(x,x)
-    0.0
-    julia> 𝒜s=[1:20]; ℬs=[1:19]; ϕ1=[-3.75,1.5]; ϕ2=[3.75,1.5];
-    julia> x1=CpelNano.RegStruct([],ϕ1,𝒜s,ℬs); x2=CpelNano.RegStruct([],ϕ2,𝒜s,ℬs);
-    julia> CpelNano.get_∇logZ!(x1); CpelNano.get_rs_mats!(x1); CpelNano.get_Z!(x1); CpelNano.comp_nme_vec!(x1);
-    julia> CpelNano.get_∇logZ!(x2); CpelNano.get_rs_mats!(x2); CpelNano.get_Z!(x2); CpelNano.comp_nme_vec!(x2);
-    julia> CpelNano.comp_gjsd(x1,x2)
-    0.9993863729172315
-    ```
-"""
-function comp_gjsd(dat1::RegStruct,dat2::RegStruct)::Float64
-
-    # Parameter geometric mixture of Ising
-    αs1,βs1 = get_αβ_from_ϕ(dat1.ϕhat,dat1)
-    αs2,βs2 = get_αβ_from_ϕ(dat2.ϕhat,dat2)
-    ϕγ = 0.5.*(dat1.ϕhat+dat2.ϕhat)
-    αsγ = 0.5.*(αs1+αs2)
-    βsγ = 0.5.*(βs1+βs2)
-    
-    # Get partition function
-    logu1 = get_log_u(αsγ[1])
-    loguN = get_log_u(αsγ[end])
-    logWs = [get_log_W(αsγ[n],αsγ[n+1],βsγ[n]) for n=1:length(βsγ)]
-    logZγ = get_log_Z(logu1,loguN,logWs)
-        # print_log("log(Z1)=$(log(dat1.Z)); log(Z2)=$(log(dat2.Z)); log(Zγ)=$(logZγ)")
-
-    # Compute numerator of 1-GJSD
-    gjsd = log(dat1.Z) + log(dat2.Z) - (dat1.ϕhat'*dat1.∇logZ + dat2.ϕhat'*dat2.∇logZ)
-
-    # Normalize 1-GJSD
-    gjsd /= 2*logZγ - ϕγ'*(dat1.∇logZ + dat2.∇logZ)
-    
-    # Return GJSD
-    return min(1.0,max(0.0,1.0-gjsd))
-    
-end
-"""
-    `comp_gjsd_vec(REG_DATA_1,REG_DATA_2)`
-
-    Function that computes the normalized generalised Jensen-Shannon divergence (G-JSD) over
-    each α-subregion.
+    Function that computes cross-entropy H(θi,θ̃). This function is used in function
+    `comp_cmd` to compute the Coefficient of Methylation Divergence (CMD).
 
     # Examples
     ```julia-repl
-    julia> 𝒜s=[1:20]; ℬs=[1:19]; ϕ=[0.0,0.0]; x=CpelNano.RegStruct([],ϕ,𝒜s,ℬs);
-    julia> CpelNano.get_∇logZ!(x); CpelNano.get_rs_mats!(x); CpelNano.get_Z!(x); CpelNano.comp_nme_vec!(x);
-    julia> CpelNano.comp_gjsd_vec(x,x)
-    0.0
-    julia> 𝒜s=[1:20]; ℬs=[1:19]; ϕ1=[-1.75,1.25]; ϕ2=[1.75,1.25];
-    julia> x1=CpelNano.RegStruct([],ϕ1,𝒜s,ℬs); x2=CpelNano.RegStruct([],ϕ2,𝒜s,ℬs);
-    julia> CpelNano.get_∇logZ!(x1); CpelNano.get_rs_mats!(x1); CpelNano.get_Z!(x1); CpelNano.comp_nme_vec!(x1);
-    julia> CpelNano.get_∇logZ!(x2); CpelNano.get_rs_mats!(x2); CpelNano.get_Z!(x2); CpelNano.comp_nme_vec!(x2);
-    julia> CpelNano.comp_gjsd_vec(x1,x2)
-    0.9674329433697847
-    julia> 𝒜s=[1:5,6:10,11:15,16:20]; ℬs=[1:9,10:19];
-    julia> ϕ1=vcat(fill(1.0,4),[1.0,1.0]); ϕ2=vcat(fill(-1.0,4),[1.0,1.0]);
-    julia> x1=CpelNano.RegStruct([],ϕ1,𝒜s,ℬs); x2=CpelNano.RegStruct([],ϕ2,𝒜s,ℬs);
-    julia> CpelNano.get_∇logZ!(x1); CpelNano.get_rs_mats!(x1); CpelNano.get_Z!(x1); 
-    julia> CpelNano.get_log_gs!(x1); CpelNano.comp_mml!(x1); CpelNano.comp_nme_vec!(x1);
-    julia> CpelNano.get_∇logZ!(x2); CpelNano.get_rs_mats!(x2); CpelNano.get_Z!(x2); 
-    julia> CpelNano.get_log_gs!(x2); CpelNano.comp_mml!(x2); CpelNano.comp_nme_vec!(x2);
-    julia> CpelNano.comp_gjsd_vec(x1,x2)
-    4-element Array{Float64,1}:
-     0.8506403090777066
-     0.9156156533053169
-     0.9156156533053222
-     0.8506403090776973
+    julia> CpelNano.comp_crs_ent(rs,rs_mix)
     ```
 """
-function comp_gjsd_vec(dat1::RegStruct,dat2::RegStruct)::Vector{Float64}
+function comp_crs_ent(rs::RegStruct,rs_mix::RegStruct)::Vector{Float64}
 
-    ## Initialize
-    
-    # Get αs & βs
-    K1 = length(dat1.𝒜s)
-    gjsd_vec = fill(NaN,K1)
-    
-    # Parameter geometric mixture of Ising
-    αs1,βs1 = get_αβ_from_ϕ(dat1.ϕhat,dat1)
-    αs2,βs2 = get_αβ_from_ϕ(dat2.ϕhat,dat2)
-    ϕγ = 0.5.*(dat1.ϕhat+dat2.ϕhat)
-    αsγ = 0.5.*(αs1+αs2)
-    βsγ = 0.5.*(βs1+βs2)
+    # Get αs & βs of geometric mixture of Isings
+    α̃s,β̃s = get_αβ_from_ϕ(rs_mix.ϕhat,rs_mix)
 
-    # Create struct for geometric mixture
-    mix = RegStruct([],ϕγ,dat1.𝒜s,dat1.ℬs)
-    get_rs_mats!(mix)
-    get_Z!(mix)
-    get_log_gs!(mix)
+    # Compute E[log g1(Xp;θ̃);θi] and E[log g2(Xq;θ̃);θi] for all analysis regions
+    exps_log_g1 = comp_crs_exps_log_g1(rs,rs_mix)
+    exps_log_g2 = comp_crs_exps_log_g2(rs,rs_mix)
+        # print_log("exps_log_g1=$(exps_log_g1)")
+        # print_log("exps_log_g2=$(exps_log_g2)")
 
-    ## Get E[X] and E[XX] under ϕ1 and ϕ2
+    # Loop over analysis regions
+    crs_ent_vec = fill(NaN,rs.nls_rgs.num)
+    @inbounds for k=1:rs.nls_rgs.num
 
-    # Scale Ws for numerical stability
-    Ws1 = US * dat1.tm.Ws
-    Ws2 = US * dat2.tm.Ws
+        # Get indices
+        p = minimum(rs.nls_rgs.cpg_ind[k])
+        q = maximum(rs.nls_rgs.cpg_ind[k])
+        p==q==0 && continue
 
-    # Get E[X]
-    ex1 = get_E_X(dat1.tm.u1,dat1.tm.uN,Ws1,dat1.Z)
-    ex2 = get_E_X(dat2.tm.u1,dat2.tm.uN,Ws2,dat2.Z)
-    
-    # Get E[XX]
-    exx1 = get_E_XX(dat1.tm.u1,dat1.tm.uN,Ws1,dat1.Z)
-    exx2 = get_E_XX(dat2.tm.u1,dat2.tm.uN,Ws2,dat2.Z)
-
-    # Compute scaled Z's
-    Z1s = dat1.tm.u1' * prod(Ws1) * dat1.tm.uN
-    Z2s = dat2.tm.u1' * prod(Ws2) * dat2.tm.uN
-
-    # Loop over subregions
-    @inbounds for k=1:K1
-
-        # Get p and q
-        p = minimum(mix.𝒜s[k])
-        q = maximum(mix.𝒜s[k])
-
-        # Create V matrix for ϕγ
-        Vp = [mix.tm.log_gs.pm[k] 0.0; 0.0 mix.tm.log_gs.pp[k]]
-        Vq = [mix.tm.log_gs.qm[k] 0.0; 0.0 mix.tm.log_gs.qp[k]]
-
-        ## Deal with ϕ1
-
-        # First term
-        if p==1
-            aux1 = 0.0
-        elseif p==dat1.L
-            aux1 = dat1.tm.u1' * prod(Ws1) * Vp * dat1.tm.uN / Z1s
-        else
-            aux1 = dat1.tm.u1' * prod(Ws1[1:(p-1)]) * Vp * prod(Ws1[p:end]) * dat1.tm.uN / Z1s
-        end
-            # aux1 = p==1 ? 0.0 : dat1.tm.u1' * prod(Ws1[1:(p-1)]) * Vp * prod(Ws1[p:end]) * 
-            #     dat1.tm.uN / Z1s
-
-        # Second term
-        if q==dat1.L
-            aux2 = 0.0
-        elseif q==1
-            aux2 = dat1.tm.u1' * Vq * prod(Ws1) * dat1.tm.uN / Z1s
-        else
-            aux2 = dat1.tm.u1' * prod(Ws1[1:(q-1)]) * Vq * prod(Ws1[q:end]) * dat1.tm.uN / Z1s
-        end
-            # aux2 = q==dat1.L ? 0.0 : dat1.tm.u1' * prod(Ws1[1:(q-1)]) * Vq * prod(Ws1[q:end]) *
-            #     dat1.tm.uN / Z1s
-
-        # Cross entropy
-        cross = log(mix.Z)-aux1-aux2-αsγ[p:q]'*ex1[p:q]
-        cross += p==q ? 0.0 : -βsγ[p:(q-1)]'*exx1[p:(q-1)]
-
-        ## Deal with ϕ2
-
-        # Deal with first term
-        if p==1
-            aux1 = 0.0
-        elseif p==dat2.L
-            aux1 = dat2.tm.u1' * prod(Ws2) * Vp * dat2.tm.uN / Z2s
-        else
-            aux1 = dat2.tm.u1' * prod(Ws2[1:(p-1)]) * Vp * prod(Ws2[p:end]) * dat2.tm.uN / Z2s
-        end
-            # aux1 = p==1 ? 0.0 : dat2.tm.u1' * prod(Ws2[1:(p-1)]) * Vp * prod(Ws2[p:end]) * 
-            #     dat2.tm.uN / Z2s
-
-        # Second term
-        if q==dat2.L
-            aux2 = 0.0
-        elseif q==1
-            aux2 = dat2.tm.u1' * Vq * prod(Ws2) * dat2.tm.uN / Z2s
-        else
-            aux2 = dat2.tm.u1' * prod(Ws2[1:(q-1)]) * Vq * prod(Ws2[q:end]) * dat2.tm.uN / Z2s
-        end
-            # aux2 = q==dat2.L ? 0.0 : dat2.tm.u1' * prod(Ws2[1:(q-1)]) * Vq * prod(Ws2[q:end]) * 
-            #     dat2.tm.uN / Z2s
+        # Compute cross entropy
+        crs_ent = rs_mix.logZ - α̃s[p:q]'*rs.exps.ex[p:q] - exps_log_g1[k] - exps_log_g2[k]
+        crs_ent += p==q ? 0.0 : - β̃s[p:(q-1)]' * rs.exps.exx[p:(q-1)]
         
-        # Cross-entropy
-        cross += log(mix.Z)-aux1-aux2-αsγ[p:q]'*ex2[p:q]
-        cross += p==q ? 0.0 : -βsγ[p:(q-1)]'*exx2[p:(q-1)]
-
-        # Add G-JSD component
-        gjsd_vec[k] = (dat1.nme_vec[k]+dat2.nme_vec[k])*(q-p+1)*LOG2
-        gjsd_vec[k] /= cross
+        # Store
+        crs_ent_vec[k] = crs_ent
         
     end
 
-    # Return GJSD
-    return max.(0.0,min.(1.0,1.0.-gjsd_vec))
+    # Return vector
+    return crs_ent_vec
+
+end
+"""
+    `comp_cmd(REG_DATA_1,REG_DATA_2)`
+
+    Function that computes the normalized generalised Jensen-Shannon divergence (G-JSD), or
+    Coefficient of Methylation Divergence (CMD), over each analysis region.
+
+    # Examples
+    ```julia-repl
+    julia> comp_cmd(REG_DATA_1,REG_DATA_2)
+    ```
+"""
+function comp_cmd(rs1::RegStruct,rs2::RegStruct)::Vector{Float64}
+
+    ## Struct for geometric mixture
+    
+    # Create structure
+    mix = CpelNano.RegStruct()
+    mix.cpg_pos = rs1.cpg_pos; 
+    mix.N = rs1.N; 
+    mix.ρn = rs1.ρn; 
+    mix.dn = rs1.dn; 
+    mix.nls_rgs = rs1.nls_rgs;
+    mix.Nl = rs1.Nl;
+    mix.L = rs1.L;
+    mix.ρl = rs1.ρl;
+    mix.dl = rs1.dl;
+    mix.ϕhat = 0.5.*(rs1.ϕhat+rs2.ϕhat)
+
+    # Required quantities
+    get_rs_lgtrck_mats!(mix)
+    get_rs_logZ!(mix)
+    get_rs_exps!(mix)
+    get_rs_log_gs!(mix)
+
+    ## Compute cross-entropies
+    
+    # Cross-entropy w/ θ1 & θ2
+    cross_1 = comp_crs_ent(rs1,mix)
+    cross_2 = comp_crs_ent(rs2,mix)
+    
+    ## Compute CMD for each analysis region
+    
+    cmd_vec = fill(NaN,rs1.nls_rgs.num)
+    @inbounds for k=1:rs1.nls_rgs.num
+
+        # Get indices
+        p = minimum(rs1.nls_rgs.cpg_ind[k])
+        q = maximum(rs1.nls_rgs.cpg_ind[k])
+
+        # Skip if empty analysis region
+        p==q==0 && continue
+        
+        # Shannon's Entropy
+        ent_1 = rs1.nme[k] * (q-p+1) * LOG2
+        ent_2 = rs2.nme[k] * (q-p+1) * LOG2
+            # print_log("H(θ1)=$(ent_1); H(θ2)=$(ent_2)")
+            # print_log("H(θ1,θ̃)=$(cross_1[k]); H(θ2,θ̃)=$(cross_2[k])")
+
+        # If CMD is undefined continue
+        cross_1[k]==cross_2[k]==0.0 && continue
+
+        # Store CMD k-th component
+        cmd_vec[k] = 1.0 - (ent_1 + ent_2) / (cross_1[k] + cross_2[k]) 
+
+    end
+
+    # Return CMD
+    return cmd_vec
     
 end
 ###################################################################################################
-# DEVELOPING QUANTITIES
+# OTHER QUANTITIES
 ###################################################################################################
 """
     `get_ρ(u1, uN, Ws, Z)`

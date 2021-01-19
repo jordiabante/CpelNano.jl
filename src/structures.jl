@@ -142,38 +142,34 @@ mutable struct RegStruct
     dl::Vector{Float64}                                 # Vector of d(l,l+1) per CpG group
     cpg_pos::Vector{Int64}                              # CpG site positions
     cpg_grps::Vector{CpgGrp}                            # CpG groups intervals
-    cpg_occ::Vector{Bool}                               # Vector indicating subregions w/ CG groups
     # Data
     m::Int64                                            # Number of observations
     calls::Vector{Vector{MethCallCpgGrp}}               # Set of meth calls vecs in a region
     # Analysis regions
     nls_rgs::AnalysisRegions                            # Structure containing analysis regions info    
-    # Output
+    # Statistical summaries
     ϕhat::Vector{Float64}                               # Estimated parameter vector ϕ
-    Z::Float64                                          # Partition function evaluated @ ϕ
     logZ::Float64                                       # Log partition function evaluated @ ϕ
-    ∇logZ::Vector{Float64}                              # Gradient of log likelihood @ ϕhat
-    mml::Vector{Float64}                                # Mean methylation level
-    nme::Vector{Float64}                                # Normalized methylation entropy
-    Σmat::UpperTriangular{Float64,Array{Float64,2}}     # Covariance matrix
+    mml::Vector{Float64}                                # Mean methylation level per analysis region
+    nme::Vector{Float64}                                # Normalized methylation entropy per analysis region
     # Transfer matrix
     tm::TransferMat                                     # Arrays for transfer matrix methods
     # Expectations
     exps::Expectations                                  # Expectations of estimation region
     # Init Methods
     RegStruct() = new(false,
-        "",0,0,0,0,[],[],[],[],[],[],[],[],
+        "",0,0,0,0,[],[],[],[],[],[],[],
         0,[],
         AnalysisRegions(),
-        [],NaN,NaN,[],[],[],UpperTriangular(fill(NaN,(1,1))),
+        [],NaN,[],[],
         TransferMat(),
         Expectations()
     )
     RegStruct(calls) = new(false,
-        "",0,0,0,0,[],[],[],[],[],[],[],[],
+        "",0,0,0,0,[],[],[],[],[],[],[],
         length(calls),calls,
         AnalysisRegions(),
-        [],NaN,NaN,[],[],[],UpperTriangular(fill(NaN,(1,1))),
+        [],NaN,[],[],
         TransferMat(),
         Expectations()
     )

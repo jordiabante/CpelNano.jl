@@ -1196,31 +1196,6 @@ function get_∇logZ(rg::RegStruct,ϕhat::Vector{Float64})::Vector{Float64}
 
 end
 """
-    `get_∇logZ!(REG_ST)`
-
-    Numerically computes the gradient of the log partition function of a model and stores it in the passed
-    RegStruct REG_DATA.
-
-    # Examples
-    ```julia-repl
-    julia> x=CpelNano.RegStruct(); x.L=10; x.Nl=fill(5.0,x.L); x.ρl=fill(0.1,x.L); x.dl=fill(10.0,x.L);
-    julia> x.ϕhat=[0.0,0.0,0.0]; CpelNano.get_∇logZ!(x); x.∇logZ
-    3-element Array{Float64,1}:
-     0.0
-     0.0
-     0.0
-    ```
-"""
-function get_∇logZ!(rg::RegStruct)::Nothing
-
-    # Set ∇logZ
-    rg.∇logZ  = get_∇logZ(rg,rg.ϕhat)
-
-    # Return nothing
-    return nothing
-
-end
-"""
 
     `get_E_X_log(log_u1,log_uL,log_Ws,log_Z)`
     
@@ -1325,6 +1300,29 @@ function get_E_XX_log(logu1::Vector{Float64},loguL::Vector{Float64},logWs::Vecto
 end
 """
 
+    `get_rs_exps!(REG_STRUCT)`
+
+    Stores E[X] and E[XX] in estimation region structure.
+
+    # Examples
+    ```julia-repl
+    julia> get_rs_exps!(rs)
+    ```
+"""
+function get_rs_exps!(rs::RegStruct)::Nothing
+
+    # Get E[X]
+    rs.exps.ex = get_E_X_log(rs.tm.log_u1,rs.tm.log_uN,rs.tm.log_Ws,rs.logZ)
+
+    # Get E[XX]
+    rs.exps.exx = get_E_XX_log(rs.tm.log_u1,rs.tm.log_uN,rs.tm.log_Ws,rs.logZ)
+
+    # Return nothing
+    return nothing
+    
+end
+"""
+
     `get_marg_px_log(log_u1,log_uL,log_Ws,log_Z)`
     
     Computes marginal probability p(x_l) using the transfer matrix method.
@@ -1371,5 +1369,25 @@ function get_marg_px_log(logu1::Vector{Float64},loguL::Vector{Float64},logWs::Ve
 
     # Return vector of p(xl) for l=1,2,…,L
     return exp.(log_exs .- logZ) .- 2.0
+
+end
+"""
+
+    `get_rs_px!(REG_DATA)`
+    
+    Computes marginal probability p(x_l) from E[X].
+    
+    # Examples
+    ```julia-repl
+    julia> 
+    ```
+"""
+function get_rs_px!(rs::RegStruct)::Nothing
+
+    # Compute p(xl) for l=1,2,…,L
+    rs.px = 0.5 .* (rs.exps.ex .+ 1.0)
+
+    # Return nothing
+    return nothing
 
 end
