@@ -137,8 +137,8 @@ end
 #################################################################################################
 
 # Init plots
-p1 = plot(ylabel="sensitivity",title="Nanopolish",xlim=(0,1));
-p2 = plot(ylabel="sensitivity",title="DeepSignal",xlim=(0,1));
+p1 = plot(ylabel="sensitivity",xlabel="1-specificity",title="Nanopolish",xlim=(0,1));
+p2 = plot(ylabel="sensitivity",xlabel="1-specificity",title="DeepSignal",xlim=(0,1));
 p3 = plot(ylabel="sensitivity",xlabel="1-specificity",title="Megalodon",xlim=(0,1));
 roc_plots = Dict("Nanopolish" => p1,"DeepSignal" => p2, "Megalodon" => p3)
 
@@ -149,7 +149,7 @@ auc_mega = []
 aucs = Dict("Nanopolish" => auc_nano,"DeepSignal" => auc_deep, "Megalodon" => auc_mega)
 
 # Calculate ROC and AUROC for each caller
-for caller in keys(cllr_color_code)
+for caller in ["Megalodon","DeepSignal","Nanopolish"]
 
     # Print caller
     println("Working on $(caller)")
@@ -176,14 +176,14 @@ end
 
 # Plot ROC ROC_Curves
 plot(p1,p2,p3,layout=(3,1),size=(600,1000),top_margin=10px,bottom_margin=10px,left_margin=20px,right_margin=20px)
-savefig("$(data_dir)/ROC_Curves.pdf")
+savefig("$(data_dir)/ROC-Curves.pdf")
 
 # Plot AUROC
-p4 = plot(xlabel="signal noise level (sd)",ylabel="auc-roc",ylim=(0,1));
+p4 = plot(xlabel="signal noise level (sd)",ylabel="AUC-ROC",ylim=(0,1));
 for caller in keys(cllr_color_code)
     col = cllr_color_code[caller]
     plot!(p4,noise_levels,aucs[caller],seriestype=:scatter,markershape=:circle,color=col,label=caller)
     plot!(p4,noise_levels,aucs[caller],seriestype=:line,alpha=0.5,color=col,label="")
 end
-plot(p4,size=(700,600))
+plot(p4,size=(700,600),legend=:bottomleft)
 savefig("$(data_dir)/AUC-ROC.pdf")

@@ -19,7 +19,7 @@ const nano_thrs = vcat(collect(-400.0:10.0:-20.0),collect(-20.0:0.1:20.0),collec
 
 # Colors
 const blnd_col = ["#999999","#E69F00","#56B4E9","#009E73","#F0E442","#0072B2","#D55E00","#CC79A7"]
-const cllr_color_code = Dict("Nanopolish"=>"#D55E00","DeepSignal"=>"#009E73","Megalodon"=>"#56B4E9")
+const cllr_color_code = Dict("Megalodon"=>"#56B4E9","DeepSignal"=>"#009E73","Nanopolish"=>"#D55E00")
 const call_thrs = Dict("Nanopolish" => nano_thrs, "DeepSignal" => deepsig_thrs,"Megalodon" => mega_thrs)
 const s_color_cde = Dict(0.5=>blnd_col[1],1.0=>blnd_col[2],1.5=>blnd_col[3],2.0=>blnd_col[4],2.5=>blnd_col[5],3.0=>blnd_col[6])
 
@@ -139,12 +139,12 @@ end
 #################################################################################################
 
 # Init plots
-p1 = plot(ylabel="accuracy",ylim=(0,1));
-p2 = plot(ylabel="precision",ylim=(0,1));
-p3 = plot(ylabel="sensitivity",ylim=(0,1));
+p1 = plot(xlabel="signal noise level (sd)",ylabel="accuracy",ylim=(0,1));
+p2 = plot(xlabel="signal noise level (sd)",ylabel="precision",ylim=(0,1));
+p3 = plot(xlabel="signal noise level (sd)",ylabel="sensitivity",ylim=(0,1));
 p4 = plot(xlabel="signal noise level (sd)",ylabel="specificity",ylim=(0,1));
 
-for caller in keys(cllr_color_code)
+for caller in ["Megalodon","DeepSignal","Nanopolish"]
 
     # Print caller
     println("Working on $(caller)")
@@ -172,5 +172,5 @@ for caller in keys(cllr_color_code)
 end
 
 # Generate plot & store
-plot(p1,p2,p3,p4,layout=(4,1),size=(600,1000),top_margin=10px,bottom_margin=10px,left_margin=20px,right_margin=20px)
+plot(p1,p2,p3,p4,layout=(4,1),size=(600,1000),top_margin=10px,bottom_margin=10px,left_margin=20px,right_margin=20px,legend=(0.2,0.3))
 savefig("$(data_dir)/Benchmark-Callers-X.pdf")

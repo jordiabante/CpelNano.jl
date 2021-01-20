@@ -170,15 +170,15 @@ for caller in keys(cllr_color_code)
 end
 
 # Plot ROC ROC_Curves
-plot(p1,p2,p3,layout=(3,1),size=(600,1000),top_margin=10px,bottom_margin=10px,left_margin=20px,right_margin=20px)
-savefig("$(data_dir)/PR_Curves.pdf")
+plot(p1,p2,p3,layout=(3,1),size=(600,1000),top_margin=10px,bottom_margin=10px,left_margin=20px,right_margin=20px,legend=:bottomleft)
+savefig("$(data_dir)/PRC-Curves.pdf")
 
 # Plot AUROC
-p4 = plot(xlabel="signal noise level (sd)",ylabel="auc-prc",ylim=(0,1));
+p4 = plot(xlabel="signal noise level (sd)",ylabel="AUC-PRC",ylim=(0,1));
 for caller in keys(cllr_color_code)
     col = cllr_color_code[caller]
     plot!(p4,noise_levels,aucs[caller],seriestype=:scatter,markershape=:circle,color=col,label=caller)
     plot!(p4,noise_levels,aucs[caller],seriestype=:line,alpha=0.5,color=col,label="")
 end
-plot(p4,size=(700,600))
-savefig("$(data_dir)/AUC-PR.pdf")
+plot(p4,size=(700,600),legend=:bottomleft)
+savefig("$(data_dir)/AUC-PRC.pdf")

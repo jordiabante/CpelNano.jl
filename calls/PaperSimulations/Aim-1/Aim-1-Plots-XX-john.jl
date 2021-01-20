@@ -116,12 +116,12 @@ end
 #################################################################################################
 
 # Init plots
-p1 = plot(ylabel="accuracy",ylim=(0,1));
-p2 = plot(ylabel="precision",ylim=(0,1));
-p3 = plot(ylabel="sensitivity",ylim=(0,1));
+p1 = plot(xlabel="signal noise level (sd)",ylabel="accuracy",ylim=(0,1));
+p2 = plot(xlabel="signal noise level (sd)",ylabel="precision",ylim=(0,1));
+p3 = plot(xlabel="signal noise level (sd)",ylabel="sensitivity",ylim=(0,1));
 p4 = plot(xlabel="signal noise level (sd)",ylabel="specificity",ylim=(0,1));
 
-for caller in keys(cllr_color_code)
+for caller in ["Megalodon","DeepSignal","Nanopolish"]
 
     # Print caller
     println("Working on $(caller)")
@@ -149,5 +149,5 @@ for caller in keys(cllr_color_code)
 end
 
 # Generate plot & store
-plot(p1,p2,p3,p4,layout=(4,1),size=(600,1000),top_margin=10px,bottom_margin=10px,left_margin=20px,right_margin=20px)
+plot(p1,p2,p3,p4,layout=(4,1),size=(600,1000),top_margin=10px,bottom_margin=10px,left_margin=20px,right_margin=20px,legend=(0.2,0.3))
 savefig("$(data_dir)/Benchmark-Callers-XX-john.pdf")
