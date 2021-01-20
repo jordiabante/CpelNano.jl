@@ -19,8 +19,8 @@ const nano_thrs = vcat(collect(-520.0:100.0:-20.0),collect(-20.0:0.25:20.0),coll
 
 # Colors
 const blnd_col = ["#999999","#E69F00","#56B4E9","#009E73","#F0E442","#0072B2","#D55E00","#CC79A7"]
-const call_thrs = Dict("nanopolish" => nano_thrs, "deepsignal" => deepsig_thrs,"megalodon" => mega_thrs)
-const cllr_color_code = Dict("nanopolish" => blnd_col[1],"deepsignal" => blnd_col[end], "megalodon" => blnd_col[2])
+const cllr_color_code = Dict("Nanopolish"=>"#D55E00","DeepSignal"=>"#009E73","Megalodon"=>"#56B4E9")
+const call_thrs = Dict("Nanopolish" => nano_thrs, "DeepSignal" => deepsig_thrs,"Megalodon" => mega_thrs)
 const s_color_cde = Dict(0.5=>blnd_col[1],1.0=>blnd_col[2],1.5=>blnd_col[3],2.0=>blnd_col[4],2.5=>blnd_col[5],3.0=>blnd_col[6])
 
 ## Default attributes
@@ -117,8 +117,8 @@ function get_auc(recall_vec,prec_vec)
     # Integrate ROC curve
     auc = 0.0
     @inbounds for i in 1:(length(prec_vec)-1)
-        x = prec_vec[i+1]-prec_vec[i]
-        y = recall_vec[i]
+        x = recall_vec[i]-recall_vec[i+1]
+        y = prec_vec[i]
         auc += x * y
     end
 
@@ -132,16 +132,16 @@ end
 #################################################################################################
 
 # Init plots
-p1 = plot(xlabel="Recall",ylabel="Precision",title="Nanopolish PR Curve",ylim=(0.5,1.0));
-p2 = plot(xlabel="Recall",ylabel="Precision",title="DeepSignal PR Curve",ylim=(0.5,1.0));
-p3 = plot(xlabel="Recall",ylabel="Precision",title="Megalodon PR Curve",ylim=(0.5,1.0));
-roc_plots = Dict("nanopolish" => p1,"deepsignal" => p2, "megalodon" => p3)
+p1 = plot(xlabel="sensitivity (recall)",ylabel="precision",title="Nanopolish",ylim=(0.5,1.0));
+p2 = plot(xlabel="sensitivity (recall)",ylabel="precision",title="DeepSignal",ylim=(0.5,1.0));
+p3 = plot(xlabel="sensitivity (recall)",ylabel="precision",title="Megalodon",ylim=(0.5,1.0));
+roc_plots = Dict("Nanopolish" => p1,"DeepSignal" => p2, "Megalodon" => p3)
 
 # Init AUROC array
 auc_nano = []
 auc_deep = []
 auc_mega = []
-aucs = Dict("nanopolish" => auc_nano,"deepsignal" => auc_deep, "megalodon" => auc_mega)
+aucs = Dict("Nanopolish" => auc_nano,"DeepSignal" => auc_deep, "Megalodon" => auc_mega)
 
 # Calculate ROC and AUROC for each caller
 for caller in keys(cllr_color_code)
@@ -160,7 +160,7 @@ for caller in keys(cllr_color_code)
 
         # Plot curve
         col = s_color_cde[s]
-        plot!(roc_plots[caller],recall_vec,prec_vec,seriestype=:line,alpha=0.5,color=col,label=string("noise ",s))
+        plot!(roc_plots[caller],recall_vec,prec_vec,seriestype=:line,alpha=0.5,color=col,label="sd=$(s)")
 
         # Calculate AUC
         push!(aucs[caller],get_auc(recall_vec,prec_vec))
@@ -174,11 +174,11 @@ plot(p1,p2,p3,layout=(3,1),size=(600,1000),top_margin=10px,bottom_margin=10px,le
 savefig("$(data_dir)/PR_Curves.pdf")
 
 # Plot AUROC
-p4 = plot(xlabel="Noise level",ylabel="AUC",title="Performance callers X_{n}",ylim=(0,1));
+p4 = plot(xlabel="signal noise level (sd)",ylabel="auc-prc",ylim=(0,1));
 for caller in keys(cllr_color_code)
     col = cllr_color_code[caller]
     plot!(p4,noise_levels,aucs[caller],seriestype=:scatter,markershape=:circle,color=col,label=caller)
     plot!(p4,noise_levels,aucs[caller],seriestype=:line,alpha=0.5,color=col,label="")
 end
 plot(p4,size=(700,600))
-savefig("$(data_dir)/AUPRC.pdf")
+savefig("$(data_dir)/AUC-PR.pdf")

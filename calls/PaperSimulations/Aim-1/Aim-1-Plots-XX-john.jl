@@ -1,5 +1,5 @@
 #################################################################################################
-# AIM 1: X
+# AIM 1: XX
 #################################################################################################
 ## Deps
 using Distributed
@@ -25,39 +25,6 @@ const s_color_cde = Dict(0.5=>blnd_col[1],1.0=>blnd_col[2],1.5=>blnd_col[3],2.0=
 
 ## Default attributes
 default(titlefont=(14,"arial"),guidefont=(16,"arial"),tickfont=(12,"arial"))
-
-# Function to threshold calls
-function thresh_calls(true_x,conf_x,thrs)
-
-    # Init output vectors
-    out_true_x = []
-    out_conf_x = []
-
-    # Compare confidence score to threshold to determine call
-    @inbounds for i=1:length(true_x)
-
-        if conf_x[i]=="n/a"
-            # Fails to detect
-            push!(out_conf_x,-1)
-            push!(out_true_x,true_x[i])
-        elseif conf_x[i] < thrs
-            # Negative
-            push!(out_conf_x, -1)
-            push!(out_true_x, true_x[i])
-        elseif conf_x[i] >= thrs
-            # Positive
-            push!(out_conf_x, 1)
-            push!(out_true_x, true_x[i])
-        else
-            println("Something went wrong when thresholding calls ...")
-        end
-
-    end
-
-    return out_true_x,out_conf_x
-
-end
-
 
 # Function to compute accuracy
 function comp_accu(truth,pred) 
@@ -103,7 +70,7 @@ end
 function comp_spec(truth,pred)
 
     # Get negatives
-    neg_ind = pred .== -1
+    neg_ind = pred .== 0
 
     # Get prediction & truth
     if length(truth[neg_ind]) != 0
@@ -113,29 +80,39 @@ function comp_spec(truth,pred)
     end
     
     # Return specificity
-    return true_neg/sum(truth.==-1)
+    return true_neg/sum(truth.==0)
 
 end
 
-function pmap_noise_ex(caller,s)
+function pmap_noise_exx(caller,s)
     
     # Print noise level
     println("Working on sigma=$(s)")
-
+    
     # Read in 
     in_data = readdlm("$(data_dir)/$(caller)/gm12878_chr22_sigma_$(s)_$(caller)_tuples_wth_missed_sample.tsv")
 
-    # Get data 
-    true_x = in_data[:,1]
-    pred_x = in_data[:,3]
+    # Transform zeros to -10
+    ind_sel = in_data[:,3] .== 0
+    in_data[ind_sel,3] .= -10
+
+    # Transform -1 -> 0
+    ind_sel = in_data[:,3] .== -1
+    in_data[ind_sel,3] .= 0
+    ind_sel = in_data[:,1] .== -1
+    in_data[ind_sel,1] .= 0
+
+    # Get covariances 
+    true_xx = in_data[1:(end-1),1] .* in_data[2:end,1]
+    pred_xx = in_data[1:(end-1),3] .* in_data[2:end,3]
 
     # Return tuple
-    return comp_accu(true_x,pred_x),comp_prec(true_x,pred_x),comp_sens(true_x,pred_x),comp_spec(true_x,pred_x)
+    return comp_accu(true_xx,pred_xx),comp_prec(true_xx,pred_xx),comp_sens(true_xx,pred_xx),comp_spec(true_xx,pred_xx)
 
 end
 
 #################################################################################################
-# Performance of methylation callers with X_{n}
+# Performance of methylation callers with X_{n}X_{n+1}
 #################################################################################################
 
 # Init plots
@@ -150,7 +127,7 @@ for caller in keys(cllr_color_code)
     println("Working on $(caller)")
 
     # Get error in call
-    pmap_out = pmap(s->pmap_noise_ex(caller,s),noise_levels)
+    pmap_out = pmap(s->pmap_noise_exx(caller,s),noise_levels)
     
     # Unravel pmap out
     accu_vec = [x[1] for x in pmap_out]
@@ -173,4 +150,4 @@ end
 
 # Generate plot & store
 plot(p1,p2,p3,p4,layout=(4,1),size=(600,1000),top_margin=10px,bottom_margin=10px,left_margin=20px,right_margin=20px)
-savefig("$(data_dir)/Benchmark-Callers-X.pdf")
+savefig("$(data_dir)/Benchmark-Callers-XX-john.pdf")
