@@ -172,7 +172,7 @@ function test_diff_analysis_subreg!(test_out::RegStatTestStruct,ms_g1::Vector{Re
     k = 1
     @inbounds for i = 1:length(test_out.nls_reg_cpg_occ)
         
-        # If no occupancy continue to next α-subregion
+        # If no occupancy continue to next analysis region
         test_out.nls_reg_cpg_occ[i] || continue
         
         # Perform hypothesis testing

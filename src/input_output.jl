@@ -115,7 +115,7 @@ end
 """
     `write_output_mml(PATH,REGS_DATA)`
 
-    Function that stores file with α-subregion information μ(X)=[μ1(X),μ2(X),…,μK1(X)].
+    Function that stores file with analysis region information μ(X)=[μ1(X),μ2(X),…,μK1(X)].
 
     # Examples
     ```julia-repl
@@ -156,7 +156,7 @@ end
 """
     `write_output_nme(PATH,REGS_DATA)`
 
-    Function that stores file with α-subregion information h(X)=[h1(X),h2(X),…,hK1(X)].
+    Function that stores file with analysis region information h(X)=[h1(X),h2(X),…,hK1(X)].
 
     # Examples
     ```julia-repl
@@ -297,7 +297,7 @@ end
 """
     `write_nls_reg_tmml_diff_output(PMAP_OUT,UNIQUE_IDS,PATH)`
 
-    Function that writes output of Tmml α-subregion differential analysis.
+    Function that writes output of Tmml analysis region differential analysis.
 
     # Examples
     ```julia-repl
@@ -334,7 +334,7 @@ function write_nls_reg_tmml_diff_output(pmap_out::Vector{RegStatTestStruct},uniq
                 nls_reg_st = sts[j]==0 ? 1 : sts[j]
                 nls_reg_end = sts[j+1]
 
-                # Write Tmml statistics for k-th α-subregion
+                # Write Tmml statistics for k-th analysis region
                 out_str = "$(reg_data.chr)\t$(nls_reg_st)\t$(nls_reg_end)\t" 
                 out_str *= "$(sub_reg_data.tmml_test[1])\t$(sub_reg_data.tmml_test[2])\n" 
                 write(io,out_str)
@@ -354,7 +354,7 @@ end
 """
     `write_nls_reg_tnme_diff_output(PMAP_OUT,UNIQUE_IDS,PATH)`
 
-    Function that writes output of Tnme α-subregion differential analysis.
+    Function that writes output of Tnme analysis region differential analysis.
 
     # Examples
     ```julia-repl
@@ -391,7 +391,7 @@ function write_nls_reg_tnme_diff_output(pmap_out::Vector{RegStatTestStruct},uniq
                 nls_reg_st = sts[j]==0 ? 1 : sts[j]
                 nls_reg_end = sts[j+1]
 
-                # Write Tmml statistics for k-th α-subregion
+                # Write Tmml statistics for k-th analysis region
                 out_str = "$(reg_data.chr)\t$(nls_reg_st)\t$(nls_reg_end)\t" 
                 out_str *= "$(sub_reg_data.tnme_test[1])\t$(sub_reg_data.tnme_test[2])\n" 
                 write(io,out_str)
@@ -411,7 +411,7 @@ end
 """
     `write_nls_reg_diff_output(PMAP_OUT,UNIQUE_IDS,CONFIG)`
 
-    Function that writes output of Tmml & Tnme α-subregion differential analysis.
+    Function that writes output of Tmml & Tnme analysis region differential analysis.
 
     # Examples
     ```julia-repl
