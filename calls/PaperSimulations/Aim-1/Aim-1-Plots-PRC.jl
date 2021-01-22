@@ -2,7 +2,8 @@
 # AIM 1: PR
 #################################################################################################
 ## Deps
-# using Distributed
+using Distributed
+using CodecZlib
 using StatsPlots
 using Distributions
 using DelimitedFiles
@@ -27,39 +28,35 @@ const s_color_cde = Dict(0.5=>blnd_col[1],1.0=>blnd_col[2],1.5=>blnd_col[3],2.0=
 default(titlefont=(14,"arial"),guidefont=(16,"arial"),tickfont=(12,"arial"))
 
 # Function to threshold calls
-function thresh_calls(true_x,conf_x,thrs)
+@everywhere function thresh_calls(conf_x,thrs)
 
     # Init output vectors
-    out_true_x = []
     out_conf_x = []
 
     # Compare confidence score to threshold to determine call
-    @inbounds for i=1:length(true_x)
+    @inbounds for i=1:length(conf_x)
 
         if conf_x[i]=="n/a"
             # Fails to detect
             push!(out_conf_x,-1)
-            push!(out_true_x,true_x[i])
         elseif conf_x[i] < thrs
             # Negative
             push!(out_conf_x,-1)
-            push!(out_true_x,true_x[i])
         elseif conf_x[i] >= thrs
             # Positive
-            push!(out_conf_x,1)
-            push!(out_true_x,true_x[i])
+            push!(out_conf_x, 1)
         else
             println("Something went wrong when thresholding calls ...")
         end
 
     end
 
-    return out_true_x,out_conf_x
+    return out_conf_x
 
 end
 
 # Function to compute sensitivity (recall, true positive rate)
-function comp_sens(truth,pred)
+@everywhere function comp_sens(truth,pred)
 
     # Get positives
     pos_ind = pred .== 1
@@ -73,7 +70,7 @@ function comp_sens(truth,pred)
 end
 
 # Function to compute precision
-function comp_prec(truth,pred)
+@everywhere function comp_prec(truth,pred)
 
     # Get positives
     pos_ind = pred .== 1
@@ -86,23 +83,33 @@ function comp_prec(truth,pred)
 
 end
 
+@everywhere function pmap_thresh(true_x,conf_x,t)
+
+    # Threshold calls
+    thresh_x = thresh_calls(conf_x,t)
+
+    # Return
+    return comp_prec(true_x,thresh_x),comp_sens(true_x,thresh_x)
+
+end
+
 function get_prec_recall(caller,s)
     
     # Read in data
-    in_data = readdlm("$(data_dir)/$(caller)/gm12878_chr22_sigma_$(s)_$(caller)_tuples_wth_missed_sample.tsv")
+    stream = GzipDecompressorStream(open("$(data_dir)/$(caller)/gm12878_chr22_sigma_$(s)_$(caller)_tuples_wth_missed.tsv.gz"))
+    in_data = readdlm(stream)
+    close(stream)
         
     # Get true calls and confidence scores for predictions
     true_x = in_data[:,1]
     conf_x = in_data[:,2]
-    
-    # Threshold calls
-    prec_vec = []
-    recall_vec = []
-    for t in call_thrs[caller]
-        true_x_thresh,thresh_x = thresh_calls(true_x,conf_x,t)
-        push!(recall_vec,comp_sens(true_x_thresh,thresh_x))
-        push!(prec_vec,comp_prec(true_x_thresh,thresh_x))
-    end
+
+    # Get tpr and fpr
+    pmap_out = pmap(t->pmap_thresh(true_x,conf_x,t),call_thrs[caller])
+
+    # Disentangle data
+    prec_vec = [x[1] for x in pmap_out]
+    recall_vec = [x[2] for x in pmap_out]
 
     # Clean tuple
     kp_in = isfinite.(recall_vec) .& isfinite.(prec_vec)
@@ -144,7 +151,7 @@ auc_mega = []
 aucs = Dict("Nanopolish" => auc_nano,"DeepSignal" => auc_deep, "Megalodon" => auc_mega)
 
 # Calculate ROC and AUROC for each caller
-for caller in keys(cllr_color_code)
+for caller in ["Megalodon","DeepSignal","Nanopolish"]
 
     # Print caller
     println("Working on $(caller)")
