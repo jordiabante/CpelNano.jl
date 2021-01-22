@@ -12,24 +12,24 @@
     julia> CpelNano.fastq_len_store(fastq)
     ```
 """
-function fastq_len_store(fastq::String,outdir::String)::Nothing
+function fastq_len_store(fastq::String, outdir::String)::Nothing
 
     # Get prefix
-    pref = split(basename(fastq),".fastq")[1]
+    pref = split(basename(fastq), ".fastq")[1]
 
     # Loop over records in FASTQ file
     lens = Vector{Int64}()
-    open(FASTQ.Reader,fastq) do reader
+    open(FASTQ.Reader, fastq) do reader
         for record in reader
             # Get lengths
-            push!(lens,length(FASTQ.sequence(record)))
+            push!(lens, length(FASTQ.sequence(record)))
         end
     end
 
     # Write lengths
     print_log("Storing lengths...")
-    open("$(outdir)/$(pref)_read_lens.txt","w") do io
-        writedlm(io,lens)
+    open("$(outdir)/$(pref)_read_lens.txt", "w") do io
+        writedlm(io, lens)
     end
 
     # Return nothing
@@ -52,7 +52,7 @@ end
 function gen_read_len(n_reads::Int64)::Vector{Int64}
     
     # Return read lengths
-    return Int.(round.(rand(Exponential(8484.84),n_reads)))
+    return Int.(round.(rand(Exponential(8484.84), n_reads)))
 
 end
 ##################################################################################################
@@ -70,23 +70,23 @@ end
     "CCGGGGCGGA"
     ```
 """
-function gen_seq(seq_len::Int64,n::Int64)::String
+function gen_seq(seq_len::Int64, n::Int64)::String
 
     # Create random sequence
-    seq = randstring("ACGT",seq_len)
+    seq = randstring("ACGT", seq_len)
 
     # Get rid of coincidental CpGs
-    seq = replace(seq,r"CG" => (c) -> "C" * randstring("AT",1))
+    seq = replace(seq, r"CG" => (c) -> "C" * randstring("AT", 1))
 
     # Determine spacing required
-    spacing = floor(Int64,seq_len/n)
-    spacing>=2 || return ""
+    spacing = floor(Int64, seq_len / n)
+    spacing >= 2 || return ""
 
     # Add equally spaced CG's
-    seq = split(seq,"")
-    ind = floor(Int64,spacing/2):spacing:seq_len
+    seq = split(seq, "")
+    ind = floor(Int64, spacing / 2):spacing:seq_len
     for i in ind
-        seq[i:(i+1)] = ["C","G"]
+        seq[i:(i + 1)] = ["C","G"]
     end
 
     # Return sequence with n CpG sites
@@ -105,19 +105,19 @@ end
     (5,"GGCGG")
     ```
 """
-function gen_read(chr::String,fasta::String,read_len::Int64)::Tuple{Int64,String}
+function gen_read(chr::String, fasta::String, read_len::Int64)::Tuple{Int64,String}
     
     # Get position
-    fa_record = CpelNano.get_chr_fa_rec(chr,fasta)
+    fa_record = CpelNano.get_chr_fa_rec(chr, fasta)
     chrstart = fa_record.sequence[1]
     chrend = fa_record.sequence[length(fa_record.sequence)];
-    pos = rand(chrstart:(chrend-read_len+1))
+    pos = rand(chrstart:(chrend - read_len + 1))
 
     # Extract read
-    seq = convert(String,FASTA.sequence(fa_record,pos:(pos+read_len-1)));
+    seq = convert(String, FASTA.sequence(fa_record, pos:(pos + read_len - 1)));
     
     # Return tuple
-    return pos,seq
+    return pos, seq
 
 end
 """
@@ -133,7 +133,7 @@ end
     ```
 """
 function count_cpg(seq::String)::Int64
-    ind = minimum.(findall(r"CG",seq))
+    ind = minimum.(findall(r"CG", seq))
     return length(ind)
 end
 """
@@ -149,7 +149,7 @@ end
     ```
 """
 function count_mpg(seq::String)::Int64
-    ind = minimum.(findall(r"MG",seq))
+    ind = minimum.(findall(r"MG", seq))
     return length(ind)
 end
 """
@@ -164,19 +164,19 @@ end
     "CMGGGGMGGA"
     ```
 """
-function meth_seq(seq::String,methyl_vec::Vector{Int8})::String
+function meth_seq(seq::String, methyl_vec::Vector{Int8})::String
     
     # Get number of CpG sites and spacing
     n = length(methyl_vec)
-    spacing = floor(Int64,length(seq)/n)
+    spacing = floor(Int64, length(seq) / n)
 
     # Find indices of C's in CG context
-    ind = minimum.(findall(r"CG",seq))
-    length(ind)==n || return ""
+    ind = minimum.(findall(r"CG", seq))
+    length(ind) == n || return ""
 
     # Modify sequence
-    seq = split(seq,"")
-    seq[ind[methyl_vec.==Int8(1)]] .= "M"
+    seq = split(seq, "")
+    seq[ind[methyl_vec .== Int8(1)]] .= "M"
     
     # Return modified sequence
     return join(seq)
@@ -194,13 +194,13 @@ end
     julia> CpelNano.aug_mod_file(reg_file,chr_name,fasta)
     ```
 """
-function aug_mod_file(reg_file::String,chr_name::String,fasta::String)::Nothing
+function aug_mod_file(reg_file::String, chr_name::String, fasta::String)::Nothing
 
     # Read in model file
     reg_lines = readdlm(reg_file)
 
     # Get FASTA record for chr
-    fa_record = get_chr_fa_rec(chr_name,fasta)
+    fa_record = get_chr_fa_rec(chr_name, fasta)
 
     # Initialize vectors to store parameter vector and partitions from model file
     model_part = Vector{UnitRange{Int64}}()
@@ -212,16 +212,16 @@ function aug_mod_file(reg_file::String,chr_name::String,fasta::String)::Nothing
     for i in 1:size(reg_lines)[1]
         chrst = reg_lines[i,2]
         chrend = reg_lines[i,3]
-        ϕhat = parse.(Float64,split(reg_lines[i,4],','));
-        push!(model_part,chrst:chrend)
-        push!(ϕhat_1,ϕhat[1])
-        push!(ϕhat_2,ϕhat[2])
-        push!(ϕhat_3,ϕhat[3])
+        ϕhat = parse.(Float64, split(reg_lines[i,4], ','));
+        push!(model_part, chrst:chrend)
+        push!(ϕhat_1, ϕhat[1])
+        push!(ϕhat_2, ϕhat[2])
+        push!(ϕhat_3, ϕhat[3])
     end
 
     # Obtain full set of partitions from whole chromosome
     config = CpelNano.CpelNanoConfig()
-    chr_part = CpelNano.get_chr_part(chr_name,config,fasta)
+    chr_part = CpelNano.get_chr_part(chr_name, config, fasta)
 
     # Initialize vector to store analysis regions
     model_regs = Vector{CpelNano.RegStruct}()
@@ -230,7 +230,7 @@ function aug_mod_file(reg_file::String,chr_name::String,fasta::String)::Nothing
     for i in 1:length(chr_part)
         
         # Check if partition is in model file
-        modelpart_index = findfirst(x->x==chr_part[i],model_part)
+        modelpart_index = findfirst(x -> x == chr_part[i], model_part)
 
         # If partition is not in model file,then randomly sample parameter vector from model file
         if isnothing(modelpart_index)
@@ -253,18 +253,18 @@ function aug_mod_file(reg_file::String,chr_name::String,fasta::String)::Nothing
         reg_data.ϕhat = [new_ϕhat_1,new_ϕhat_2,new_ϕhat_3]
         
         # Get group info assuming singletons
-        CpelNano.get_grp_info!(reg_data,fa_record,1)
+        CpelNano.get_grp_info!(reg_data, fa_record, 1)
 
         # Set processed flag as true to store
         reg_data.proc = true
 
         # Add RegStruct to list of RegStructs for the chromosome
-        push!(model_regs,reg_data)
+        push!(model_regs, reg_data)
 
     end
 
     # Store
-    write_output_ϕ("$(reg_file).aug",model_regs)
+    write_output_ϕ("$(reg_file).aug", model_regs)
 
     # Return nothing
     return nothing
@@ -282,7 +282,7 @@ end
     julia> model_regs = CpelNano.read_reg_chr(reg_file,chr_name,fasta,fa_record)
     ```
 """
-function read_reg_chr(reg_file::String,chr_name::String,fasta::String,fa_record::FASTA.Record)::Vector{CpelNano.RegStruct}
+function read_reg_chr(reg_file::String, chr_name::String, fasta::String, fa_record::FASTA.Record)::Vector{CpelNano.RegStruct}
 
     # Read in model file
     reg_lines = readdlm(reg_file)
@@ -297,11 +297,11 @@ function read_reg_chr(reg_file::String,chr_name::String,fasta::String,fa_record:
     for i in 1:size(reg_lines)[1]
         chrst = reg_lines[i,2]
         chrend = reg_lines[i,3]
-        ϕhat = parse.(Float64,split(reg_lines[i,4],','));
-        push!(model_part,chrst:chrend)
-        push!(ϕhat_1,ϕhat[1])
-        push!(ϕhat_2,ϕhat[2])
-        push!(ϕhat_3,ϕhat[3])
+        ϕhat = parse.(Float64, split(reg_lines[i,4], ','));
+        push!(model_part, chrst:chrend)
+        push!(ϕhat_1, ϕhat[1])
+        push!(ϕhat_2, ϕhat[2])
+        push!(ϕhat_3, ϕhat[3])
     end
 
     # Initialize vector to store analysis regions
@@ -309,13 +309,13 @@ function read_reg_chr(reg_file::String,chr_name::String,fasta::String,fa_record:
 
     # Obtain full set of partitions from whole chromosome
     config = CpelNano.CpelNanoConfig();
-    chr_part = CpelNano.get_chr_part(chr_name,config,fasta);
+    chr_part = CpelNano.get_chr_part(chr_name, config, fasta);
 
     # Iterate through every partition in the chromosome
     for i in 1:length(chr_part)
 
         # Get model index
-        modelpart_index = findfirst(x->x==chr_part[i],model_part)
+        modelpart_index = findfirst(x -> x == chr_part[i], model_part)
 
         # Get corresponding ϕ
         new_ϕhat_1 = ϕhat_1[modelpart_index]
@@ -330,17 +330,17 @@ function read_reg_chr(reg_file::String,chr_name::String,fasta::String,fa_record:
         reg_data.ϕhat = [new_ϕhat_1,new_ϕhat_2,new_ϕhat_3]
         
         # Get group info assuming singletons
-        CpelNano.get_grp_info!(reg_data,fa_record,1)
+        CpelNano.get_grp_info!(reg_data, fa_record, 1)
  
         # Add RegStruct to list of RegStructs for the chromosome
-        push!(model_regs,reg_data)
+        push!(model_regs, reg_data)
  
-     end
+    end
  
      # Return list of RegStructs in chromosome,in same order as chromosome partitions
-     return model_regs
+    return model_regs
  
- end
+end
 """
     `linearsearch_readstart(startpos,parts)`
     
@@ -352,7 +352,7 @@ function read_reg_chr(reg_file::String,chr_name::String,fasta::String,fa_record:
     5000
     ```
 """
-function linearsearch_readstart(startpos::Int64,parts::Vector{UnitRange{Int64}})::Int64
+function linearsearch_readstart(startpos::Int64, parts::Vector{UnitRange{Int64}})::Int64
     for i in 1:length(parts)
         chrst = parts[i][1]
         chrend = parts[i][length(parts[i])]
@@ -374,7 +374,7 @@ end
     7001
     ```
 """
-function linearsearch_readend(endpos::Int64,idx::Int64,parts::Vector{UnitRange{Int64}})::Int64
+function linearsearch_readend(endpos::Int64, idx::Int64, parts::Vector{UnitRange{Int64}})::Int64
     for i in idx:length(parts)
         chrst = parts[i][1]
         chrend = parts[i][length(parts[i])]
@@ -396,7 +396,7 @@ end
     julia> CpelNano.get_methyl_vector(rd_st,rd_end,startidx,endidx,model_regs)
     ```
 """
-function get_methyl_vector(rd_st::Int64,rd_end::Int64,startidx::Int64,endidx::Int64,model_regs::Vector{RegStruct})::Tuple{Vector{Int8},Vector{Int64}}
+function get_methyl_vector(rd_st::Int64, rd_end::Int64, startidx::Int64, endidx::Int64, model_regs::Vector{RegStruct})::Tuple{Vector{Int8},Vector{Int64}}
     
     # Initialize
     x_out = Vector{Int8}()
@@ -409,33 +409,33 @@ function get_methyl_vector(rd_st::Int64,rd_end::Int64,startidx::Int64,endidx::In
         rs = model_regs[i]
 
         # If no CpG sites, skip
-        length(rs.cpg_pos)>0 || continue
+        length(rs.cpg_pos) > 0 || continue
 
         # Get parameter vectors
-        α,β = CpelNano.get_αβ_from_ϕ(rs.ϕhat,rs)
+        α, β = CpelNano.get_αβ_from_ϕ(rs.ϕhat, rs)
 
         # Generate realization x
-        x = length(rs.cpg_pos)==1 ? [Int8(1)] : CpelNano.gen_x_mc(α,β)
-        x_out = vcat(x_out,x)
+        x = length(rs.cpg_pos) == 1 ? [Int8(1)] : CpelNano.gen_x_mc(α, β)
+        x_out = vcat(x_out, x)
 
         # Add CpG sites
-        cpg_pos = vcat(cpg_pos,rs.cpg_pos)
+        cpg_pos = vcat(cpg_pos, rs.cpg_pos)
 
     end
 
     # Return nothing
-    length(cpg_pos)>0 || return [],[]
+    length(cpg_pos) > 0 || return [], []
 
     # Keep only overlapping part
-    fst_ind = findfirst(x->x>=rd_st,cpg_pos)
-    isnothing(fst_ind) && return [],[]
-    lst_ind = findlast(x->x<=rd_end,cpg_pos)
-    isnothing(lst_ind) && return [],[]
+    fst_ind = findfirst(x -> x >= rd_st, cpg_pos)
+    isnothing(fst_ind) && return [], []
+    lst_ind = findlast(x -> x <= rd_end, cpg_pos)
+    isnothing(lst_ind) && return [], []
     cpg_pos = cpg_pos[fst_ind:lst_ind]
     x_out = x_out[fst_ind:lst_ind]
 
     # Return x & cpg positions
-    return x_out,cpg_pos
+    return x_out, cpg_pos
 
 end
 ##################################################################################################
@@ -452,48 +452,48 @@ end
     (256.0,256.0)
     ```
 """
-function get_log_g_x(n::Int64,α::Vector{Float64},β::Vector{Float64})::NTuple{2,Float64}
+function get_log_g_x(n::Int64, α::Vector{Float64}, β::Vector{Float64})::NTuple{2,Float64}
 
     # Get size
     N = length(α)
 
     # If n=N return 0 (log(1))
-    n==N && return 0.0,0.0
+    n == N && return 0.0, 0.0
 
     # Define u_n for xn = ±1
-    unm1 = [-(α[n+1]-β[n])/2.0; +(α[n+1]-β[n])/2.0]
-    unp1 = [-(α[n+1]+β[n])/2.0; +(α[n+1]+β[n])/2.0]
+    unm1 = [-(α[n + 1] - β[n]) / 2.0; +(α[n + 1] - β[n]) / 2.0]
+    unp1 = [-(α[n + 1] + β[n]) / 2.0; +(α[n + 1] + β[n]) / 2.0]
 
     # Define u_N
-    uN = [-α[end]/2.0; α[end]/2.0]
+    uN = [-α[end] / 2.0; α[end] / 2.0]
 
     # If longer gap...
-    n==(N-1) && return log_vec_vec_mult(unm1,uN),log_vec_vec_mult(unp1,uN)
+    n == (N - 1) && return log_vec_vec_mult(unm1, uN), log_vec_vec_mult(unp1, uN)
 
     # Define Wn
-    Wnm1 = [-(α[n+1]-β[n])/2.0+β[n+1]-α[n+2]/2.0 -(α[n+1]-β[n])/2.0-β[n+1]+α[n+2]/2.0;
-            +(α[n+1]-β[n])/2.0-β[n+1]-α[n+2]/2.0 +(α[n+1]-β[n])/2.0+β[n+1]+α[n+2]/2.0]
-    Wnp1 = [-(α[n+1]+β[n])/2.0+β[n+1]-α[n+2]/2.0 -(α[n+1]+β[n])/2.0-β[n+1]+α[n+2]/2.0;
-            +(α[n+1]+β[n])/2.0-β[n+1]-α[n+2]/2.0 +(α[n+1]+β[n])/2.0+β[n+1]+α[n+2]/2.0]
+    Wnm1 = [-(α[n + 1] - β[n]) / 2.0 + β[n + 1] - α[n + 2] / 2.0 -(α[n + 1] - β[n]) / 2.0 - β[n + 1] + α[n + 2] / 2.0;
+            +(α[n + 1] - β[n]) / 2.0 - β[n + 1] - α[n + 2] / 2.0 +(α[n + 1] - β[n]) / 2.0 + β[n + 1] + α[n + 2] / 2.0]
+    Wnp1 = [-(α[n + 1] + β[n]) / 2.0 + β[n + 1] - α[n + 2] / 2.0 -(α[n + 1] + β[n]) / 2.0 - β[n + 1] + α[n + 2] / 2.0;
+            +(α[n + 1] + β[n]) / 2.0 - β[n + 1] - α[n + 2] / 2.0 +(α[n + 1] + β[n]) / 2.0 + β[n + 1] + α[n + 2] / 2.0]
 
     # If longer gap...
-    n==(N-2) && return log_vec_vec_mult(log_vec_mat_mult(unm1,Wnm1),uN),log_vec_vec_mult(log_vec_mat_mult(unp1,Wnp1),uN)
+    n == (N - 2) && return log_vec_vec_mult(log_vec_mat_mult(unm1, Wnm1), uN), log_vec_vec_mult(log_vec_mat_mult(unp1, Wnp1), uN)
 
     # Define Wn for n'>n+1
     Wns = Vector{Array{Float64,2}}()
-    @inbounds for l=(n+2):(N-1)
-        W = [-α[l]/2.0+β[l]-α[l+1]/2.0 -α[l]/2.0-β[l]+α[l+1]/2.0;
-             +α[l]/2.0-β[l]-α[l+1]/2.0 +α[l]/2.0+β[l]+α[l+1]/2.0]
-        push!(Wns,W)
+    @inbounds for l = (n + 2):(N - 1)
+        W = [-α[l] / 2.0 + β[l] - α[l + 1] / 2.0 -α[l] / 2.0 - β[l] + α[l + 1] / 2.0;
+             +α[l] / 2.0 - β[l] - α[l + 1] / 2.0 +α[l] / 2.0 + β[l] + α[l + 1] / 2.0]
+        push!(Wns, W)
     end
     
     # Return log g_l(x_l) for x_l∈{-1,+1}
     Wns_prod = mult_log_mats(Wns)
-    gl_m1 = log_vec_vec_mult(log_vec_mat_mult(log_vec_mat_mult(unm1,Wnm1),Wns_prod),uN)
-    gl_p1 = log_vec_vec_mult(log_vec_mat_mult(log_vec_mat_mult(unp1,Wnp1),Wns_prod),uN)
+    gl_m1 = log_vec_vec_mult(log_vec_mat_mult(log_vec_mat_mult(unm1, Wnm1), Wns_prod), uN)
+    gl_p1 = log_vec_vec_mult(log_vec_mat_mult(log_vec_mat_mult(unp1, Wnp1), Wns_prod), uN)
 
     # return log unm1'*Wnm1*prod(Wns)*uN,log unp1'*Wnp1*prod(Wns)*uN
-    return gl_m1,gl_p1
+    return gl_m1, gl_p1
 
 end
 """
@@ -509,45 +509,45 @@ end
      1
     ```
 """
-function gen_x_mc(α::Vector{Float64},β::Vector{Float64})::Vector{Int8}
+function gen_x_mc(α::Vector{Float64}, β::Vector{Float64})::Vector{Int8}
 
     # Size of x
     N = length(α)
 
     # Initialize x
-    x = zeros(Int8,N)
+    x = zeros(Int8, N)
 
     # Sample first CpG site (y1/(y1+y2))
-    g = get_log_g_x(1,α,β)
-    log_y1 = g[1]-α[1]
-    log_y2 = g[2]+α[1]
-    c = max(log_y1,log_y2)
-    log_den = c + log(exp(log_y1-c)+exp(log_y2-c))
+    g = get_log_g_x(1, α, β)
+    log_y1 = g[1] - α[1]
+    log_y2 = g[2] + α[1]
+    c = max(log_y1, log_y2)
+    log_den = c + log(exp(log_y1 - c) + exp(log_y2 - c))
     p = exp(log_y2 - log_den)
-    x[1] = rand()<p ? Int8(1) : Int8(-1)
+    x[1] = rand() < p ? Int8(1) : Int8(-1)
         # print_log("g: $(g)")
         # print_log("p: $(p)")
         # readline()
 
     # Loop over all CpG sites
-    @inbounds for n in 2:(N-1)
+    @inbounds for n in 2:(N - 1)
         
         # Get g
-        g = get_log_g_x(n,α,β)
+        g = get_log_g_x(n, α, β)
             # g = get_g_x(n,α,β)
 
         # Get transition probability
-        log_y1 = g[1]-α[n]-β[n-1]*x[n-1]
-        log_y2 = g[2]+α[n]+β[n-1]*x[n-1]
-        c = max(log_y1,log_y2)
-        log_den = c + log(exp(log_y1-c)+exp(log_y2-c))
+        log_y1 = g[1] - α[n] - β[n - 1] * x[n - 1]
+        log_y2 = g[2] + α[n] + β[n - 1] * x[n - 1]
+        c = max(log_y1, log_y2)
+        log_den = c + log(exp(log_y1 - c) + exp(log_y2 - c))
         p = exp(log_y2 - log_den)
             # p = g[2]*exp(α[n]+β[n-1]*x[n-1])
             # p /= (p + g[1]*exp(-α[n]-β[n-1]*x[n-1]))
             # print_log("p: $(p)")
 
         # Sample n-th CpG site
-        x[n] = rand()<p ? Int8(1) : Int8(-1)
+        x[n] = rand() < p ? Int8(1) : Int8(-1)
 
         # Print for debug
         # print_log("g: $(g)")
@@ -557,18 +557,97 @@ function gen_x_mc(α::Vector{Float64},β::Vector{Float64})::Vector{Int8}
     end
 
     # Sample last CpG site
-    log_y1 = -α[N]-β[N-1]*x[N-1]
-    log_y2 = α[N]+β[N-1]*x[N-1]
-    c = max(log_y1,log_y2)
-    log_den = c + log(exp(log_y1-c)+exp(log_y2-c))
+    log_y1 = -α[N] - β[N - 1] * x[N - 1]
+    log_y2 = α[N] + β[N - 1] * x[N - 1]
+    c = max(log_y1, log_y2)
+    log_den = c + log(exp(log_y1 - c) + exp(log_y2 - c))
     p = exp(log_y2 - log_den)
-    x[N] = rand()<p ? Int8(1) : Int8(-1)
+    x[N] = rand() < p ? Int8(1) : Int8(-1)
         # p = exp(α[N]+β[N-1]*x[N-1])
         # p /= (p + exp(-α[N]-β[N-1]*x[N-1]))
         # x[N] = rand()<p ? Int8(1) : Int8(-1)
     
     # Return x in final state
     return x
+
+end
+##################################################################################################
+## Permutation testing simulations
+##################################################################################################
+"""
+
+    `gen_grp_comp_data(S1,S2,ϕ1,ϕ2,SEED)`
+
+    Simulates data for group comparison.
+        
+    # Examples
+    ```julia-repl
+    julia> CpelNano.gen_grp_comp_data(s1,s2,ϕ1,ϕ2,seed)
+    ```
+"""
+function gen_grp_comp_data(s1::Int64, s2::Int64, ϕ1::Vector{Float64}, ϕ2::Vector{Float64}, nse_sc::Float64, seed::Int64)::Tuple{Vector{RegStruct},Vector{RegStruct}}
+    
+    # Configuration
+    config = CpelNano.CpelNanoConfig()
+
+    # Random genomic properties
+    Random.seed!(seed)
+    chrst = 1
+    chrend = 3000
+    cpg_pos = collect(25:25:2975)
+    dn = fill(25.0, length(cpg_pos) - 1)
+    ρn = rand(0.001:0.001:0.1, length(cpg_pos))
+
+    ## Region genomic properties
+    
+    # Group 2
+    mods_g1 = Vector{RegStruct}()
+    @inbounds for s in 1:s1
+        
+        # Parameter vectors
+        ϕ1_s = ϕ1 .+ nse_sc .* [rand(-0.1:0.01:0.1),rand(-0.5:0.01:0.5),rand(0.0:0.01:0.2)]
+        
+        # Init structure
+        rs1 = RegStruct(); 
+        rs1.cpg_pos = cpg_pos; rs1.N = length(cpg_pos); rs1.chrst = chrst; 
+        rs1.chrend = chrend; rs1.ϕhat = ϕ1_s; rs1.ρn = ρn; rs1.dn = dn;
+        
+        # Re-scale models
+        rscle_grp_mod!(rs1)
+        
+        # Get statistical summaries
+        get_stat_sums!(rs1, config)
+        
+        # Push 
+        push!(mods_g1, rs1)
+        
+    end
+    
+    # Group 2
+    mods_g2 = Vector{RegStruct}()
+    @inbounds for s in 1:s2
+        
+        # Parameter vectors
+        ϕ2_s = ϕ2 .+ nse_sc .* [rand(-0.1:0.01:0.1),rand(-0.5:0.01:0.5),rand(0.0:0.01:0.2)]
+
+        # Init structure
+        rs2 = RegStruct(); 
+        rs2.cpg_pos = cpg_pos; rs2.N = length(cpg_pos); rs2.chrst = chrst; 
+        rs2.chrend = chrend; rs2.ϕhat = ϕ2_s; rs2.ρn = ρn; rs2.dn = dn;
+
+        # Re-scale model
+        rscle_grp_mod!(rs2)
+
+        # Get statistical summaries
+        get_stat_sums!(rs2, config)
+
+        # Push 
+        push!(mods_g2, rs2)
+
+    end
+    
+    # Return tuple of arrays
+    return mods_g1, mods_g2
 
 end
 ###################################################################################################################
@@ -596,34 +675,34 @@ function cpel_samp_ont(m::Int64,α::Vector{Float64},β::Vector{Float64},pobs::Fl
     μ_u::Float64,σ_u::Float64)::RegStruct
     
     # Distributions p(y|x̄)
-    p_y_x_m = Normal(μ_m,σ_m)
-    p_y_x_u = Normal(μ_u,σ_u)
+    p_y_x_m = Normal(μ_m, σ_m)
+    p_y_x_u = Normal(μ_u, σ_u)
 
     # Generate calls
     L = length(α)
     calls = Vector{Vector{MethCallCpgGrp}}()
-    while length(calls)<m
+    while length(calls) < m
         # Init call vector
-        call = [MethCallCpgGrp() for l=1:L]
+        call = [MethCallCpgGrp() for l = 1:L]
         # Get x̄ realization
-        xcpel = gen_x_mc(α,β)
+        xcpel = gen_x_mc(α, β)
         # Fill call vector
         for l in 1:L
             # Check if group is observed
-            rand()<pobs || continue
+            rand() < pobs || continue
             # Methylation call (convert to bool)
-            xbar = xcpel[l]==1
+            xbar = xcpel[l] == 1
             # Sample normal observable
             y = xbar ? rand(p_y_x_m) : rand(p_y_x_u)
             # Compute log p(y_l|x̄_l)
-            log_pyx_u = log(pdf(p_y_x_u,y))
-            log_pyx_m = log(pdf(p_y_x_m,y))
+            log_pyx_u = log(pdf(p_y_x_u, y))
+            log_pyx_m = log(pdf(p_y_x_m, y))
             # Set call for x̄_l
             call[l].obs = true
             call[l].log_pyx_u = log_pyx_u
-            call[l].log_pyx_m = log_pyx_m
+        call[l].log_pyx_m = log_pyx_m
         end
-        push!(calls,call)
+        push!(calls, call)
     end
 
     # Create simulation structure
@@ -650,29 +729,29 @@ end
     julia> data = CpelNano.cpel_samp_wgbs(M,αs,βs,pobs);
     ```
 """
-function cpel_samp_wgbs(m::Int64,α::Vector{Float64},β::Vector{Float64},pobs::Float64)::RegStruct
+function cpel_samp_wgbs(m::Int64, α::Vector{Float64}, β::Vector{Float64}, pobs::Float64)::RegStruct
 
     # Generate calls
     L = length(α)
     calls = Vector{Vector{MethCallCpgGrp}}()
-    while length(calls)<m
+    while length(calls) < m
         # Init call vector
-        call = [MethCallCpgGrp() for l=1:L]
+        call = [MethCallCpgGrp() for l = 1:L]
         # Init obs counter
         obs_count = 15
         # Get x̄ realization
-        xcpel = gen_x_mc(α,β)
+        xcpel = gen_x_mc(α, β)
         # Fill call vector
         for l in 1:L
             # Check if group is observed
-            if rand()<pobs && obs_count>=15
+            if rand() < pobs && obs_count >= 15
                 obs_count = 0
             end
             # Increase obs counter
             obs_count += 1
-            obs_count<10 || continue
+            obs_count < 10 || continue
             # Methylation call (convert to bool)
-            xbar = xcpel[l]==1
+            xbar = xcpel[l] == 1
             # Compute log p(y_l|x̄_l)
             log_pyx_u = xbar ? log_pyx_wrong_x : log_pyx_right_x
             log_pyx_m = xbar ? log_pyx_right_x : log_pyx_wrong_x
@@ -681,7 +760,7 @@ function cpel_samp_wgbs(m::Int64,α::Vector{Float64},β::Vector{Float64},pobs::F
             call[l].log_pyx_u = log_pyx_u
             call[l].log_pyx_m = log_pyx_m
         end
-        push!(calls,call)
+        push!(calls, call)
     end
 
     # Create simulation structure
@@ -711,7 +790,7 @@ end
 function init_lattice(lat_length::Int64)::Vector{Int8}
 
     # Return initialized lattice
-    return rand([Int8(-1),Int8(1)],lat_length)
+    return rand([Int8(-1),Int8(1)], lat_length)
 
 end
 """
@@ -726,35 +805,35 @@ end
     0.0
     ```
 """
-function get_ΔU(lattice::Vector{Int8},i::Int64,α::Vector{Float64},β::Vector{Float64})::Float64
+function get_ΔU(lattice::Vector{Int8}, i::Int64, α::Vector{Float64}, β::Vector{Float64})::Float64
     
     # Modified lattice
     mod_lattice = copy(lattice)
     mod_lattice[i] = -mod_lattice[i]
 
     # Original contribution of i-th CpG site
-    U = -α[i]*lattice[i]
-    if i==1 
-        U -= β[1]*lattice[i]*lattice[i+1]
-    elseif i==length(lattice)
-        U -= β[end]*lattice[i]*lattice[i-1]
+    U = -α[i] * lattice[i]
+    if i == 1 
+        U -= β[1] * lattice[i] * lattice[i + 1]
+    elseif i == length(lattice)
+        U -= β[end] * lattice[i] * lattice[i - 1]
     else
-        U -= β[i-1]*lattice[i-1]*lattice[i] + β[i]*lattice[i]*lattice[i+1]
+        U -= β[i - 1] * lattice[i - 1] * lattice[i] + β[i] * lattice[i] * lattice[i + 1]
     end
 
     # Original contribution of i-th CpG site
-    Uflip = -α[i]*mod_lattice[i]
-    if i==1 
-        Uflip -= β[1]*mod_lattice[i]*mod_lattice[i+1]
-    elseif i==length(mod_lattice)
-        Uflip -= β[end]*mod_lattice[i]*mod_lattice[i-1]
+    Uflip = -α[i] * mod_lattice[i]
+    if i == 1 
+        Uflip -= β[1] * mod_lattice[i] * mod_lattice[i + 1]
+    elseif i == length(mod_lattice)
+        Uflip -= β[end] * mod_lattice[i] * mod_lattice[i - 1]
     else
-        Uflip -= β[i-1]*mod_lattice[i-1]*mod_lattice[i] + β[i]*mod_lattice[i]*mod_lattice[i+1]
+        Uflip -= β[i - 1] * mod_lattice[i - 1] * mod_lattice[i] + β[i] * mod_lattice[i] * mod_lattice[i + 1]
     end
 
     # Note: if ΔU>0 → new config is less likely under θ 
-    # Return ΔU
-    return Uflip-U
+# Return ΔU
+    return Uflip - U
 
 end
 """
@@ -771,7 +850,7 @@ end
      1
     ```
 """
-function metro_hast_inst(lat_length::Int64,n_iters::Int64,α::Vector{Float64},β::Vector{Float64})::Vector{Int8}
+function metro_hast_inst(lat_length::Int64, n_iters::Int64, α::Vector{Float64}, β::Vector{Float64})::Vector{Int8}
 
     # Initialize lattice
     lattice = init_lattice(lat_length)
@@ -780,7 +859,7 @@ function metro_hast_inst(lat_length::Int64,n_iters::Int64,α::Vector{Float64},β
     @inbounds for i in 1:n_iters
         @inbounds for j in 1:lat_length
             # Get energy Hamiltonian differential
-            ΔU = get_ΔU(lattice,j,α,β)
+            ΔU = get_ΔU(lattice, j, α, β)
             # If flipping leads to lower energy,flip
             if ΔU < 0
                 lattice[j] = -lattice[j]

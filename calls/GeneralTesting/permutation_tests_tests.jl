@@ -1,28 +1,40 @@
-## Differential analysis: analysis region level
+######################################################################################
+## Unmatched test Tcmd
+######################################################################################
 using CpelNano
 
-# IO
-dataDir = "/Users/jordiabante/OneDrive - Johns Hopkins/CpelNano/Data/toy_example/"
-fasta = "$(dataDir)/reference.fa"
+# Parameter vectors
+a1 = -10.0; b1 = -100.0; c1 = 20.0; ϕ1 = 0.05 * [a1,b1,c1];
+a2 = 10.0; b2 = 100.0; c2 = 20.0; ϕ2 = 0.05 * [a2,b2,c2];
 
-# Unmatched test
-min_cov=5.0; max_size_subreg=1000; size_est_reg=4000; max_em_init=10; max_em_iters=20; 
-config = CpelNano.CpelNanoConfig(min_cov,max_size_subreg,size_est_reg,max_em_init,max_em_iters);
-config.out_dir = "/Users/jordiabante/Desktop/"; config.out_prefix = "test"; config.matched = false;
-theta_path_g1 = "/Users/jordiabante/Desktop/test_theta_g1.cpelnano";
-theta_path_g2 = "/Users/jordiabante/Desktop/test_theta_g2.cpelnano";
-mod_files_g1 = fill(theta_path_g1,5); mod_files_g2 = fill(theta_path_g2,5);
-# CpelNano.differential_analysis(mod_files_g1,mod_files_g1,fasta,config)
-# CpelNano.differential_analysis(mod_files_g2,mod_files_g2,fasta,config)
-CpelNano.differential_analysis(mod_files_g1,mod_files_g2,fasta,config)
+# Get group data
+s1 = 4; s2 = 4; nse_sc = 10.0; seed = 123;
+mods_g1, mods_g2 = CpelNano.gen_grp_comp_data(s1, s2, ϕ1, ϕ2, nse_sc, seed);
 
-# Matched test
-min_cov=5.0; max_size_subreg=1000; size_est_reg=4000; max_em_init=10; max_em_iters=20; 
-config = CpelNano.CpelNanoConfig(min_cov,max_size_subreg,size_est_reg,max_em_init,max_em_iters);
-config.out_dir = "/Users/jordiabante/Desktop/"; config.out_prefix = "test"; config.matched = true;
-theta_path_g1 = "/Users/jordiabante/Desktop/test_theta_g1.cpelnano";
-theta_path_g2 = "/Users/jordiabante/Desktop/test_theta_g2.cpelnano";
-mod_files_g1 = fill(theta_path_g1,8); mod_files_g2 = fill(theta_path_g2,8);
-# CpelNano.differential_analysis(mod_files_g1,mod_files_g1,fasta,config)
-# CpelNano.differential_analysis(mod_files_g2,mod_files_g2,fasta,config)
-CpelNano.differential_analysis(mod_files_g1,mod_files_g2,fasta,config)
+# Compute statistic
+cmd_cont_1 = CpelNano.comp_unmat_stat_cmd(mods_g1, mods_g1)
+cmd_cont_2 = CpelNano.comp_unmat_stat_cmd(mods_g1, mods_g1)
+cmd_treat = CpelNano.comp_unmat_stat_cmd(mods_g1, mods_g2)
+
+# Test
+CpelNano.unmat_reg_test_tcmd(mods_g1,mods_g2)
+
+######################################################################################
+## All unmatched tests
+######################################################################################
+using CpelNano
+
+# Parameter vectors
+a1 = -10.0; b1 = -100.0; c1 = 20.0; ϕ1 = 0.05 * [a1,b1,c1];
+a2 = 10.0; b2 = 100.0; c2 = 20.0; ϕ2 = 0.05 * [a2,b2,c2];
+a1 = -10.0; b1 = -100.0; c1 = 20.0; ϕ1 = 0.05 * [a1,b1,c1];
+a2 = 10.0; b2 = 100.0; c2 = 20.0; ϕ2 = 0.05 * [a2,b2,c2];
+
+# Get group data
+s1 = 4; s2 = 4; nse_sc = 10.0; seed = 123;
+mods_g1, mods_g2 = CpelNano.gen_grp_comp_data(s1, s2, ϕ1, ϕ2, nse_sc, seed);
+
+# Compute statistic
+test_cont_1 = CpelNano.unmat_est_reg_test(mods_g1, mods_g1)
+test_cont_2 = CpelNano.unmat_est_reg_test(mods_g2, mods_g2)
+test_treat = CpelNano.unmat_est_reg_test(mods_g1, mods_g2)

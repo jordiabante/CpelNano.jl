@@ -165,37 +165,8 @@ function pmap_analyze_reg(reg_int::UnitRange{Int64},chr::String,nano::String,fa_
     rscle_grp_mod!(rs)
     config.verbose && print_log("rs.Nl: $(rs.Nl)")
     
-    ## Estimate intermediate quantities
-    
-    # Get matrices for transfer matrix method with logtrick
-    get_rs_lgtrck_mats!(rs)
-    
-    # Store partition function
-    get_rs_logZ!(rs)
-
-    # Get E[X] & E[XX]
-    get_rs_exps!(rs)
-
-    # Analysis region information
-    get_nls_reg_info!(rs,config)
-
-    # Store log(g_i(±⋅))
-    get_rs_log_gs!(rs)
-
-    # Compute expectations E[log g(X)]
-    get_rs_exp_log_g1!(rs)
-    get_rs_exp_log_g2!(rs)
-
-    ## Compute output
-
-    # Compute μ(X)
-    comp_mml!(rs)
-        # print_log("μ: $(rs.mml)")
-
-    # Compute h(X)
-    comp_nme!(rs)
-        # print_log("h: $(rs.nme)")
-        # readline()
+    ## Statistical summaries
+    get_stat_sums!(rs,config)
 
     # Set estimation region as processed
     rs.proc = true

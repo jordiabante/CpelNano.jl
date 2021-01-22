@@ -10,7 +10,7 @@ mutable struct OutputFiles
     mml_file::String                    # MML
     nme_file::String                    # NME
     OutputFiles() = new()
-    OutputFiles(out_dir,out_prefix) = new(
+    OutputFiles(out_dir, out_prefix) = new(
         "$(out_dir)/$(out_prefix)_theta.txt",
         "$(out_dir)/$(out_prefix)_ex.txt",
         "$(out_dir)/$(out_prefix)_exx.txt",
@@ -40,11 +40,11 @@ mutable struct CpelNanoConfig
     pe::Bool                            # Paired end (used if BS data)
     out_files::OutputFiles              # Name of output files
     # Init methods
-    CpelNanoConfig() = new(10.0,10,250,3000,10,20,"./","cpelnano",false,false,false,false,"nanopolish","",
-        false,(0,0,0,0),false,OutputFiles("./","cpelnano"))
-    CpelNanoConfig(min_cov,max_size_subreg,size_est_reg,max_em_init,max_em_iters) = 
-        new(min_cov,10,max_size_subreg+1,size_est_reg,max_em_init,max_em_iters,"","",
-        false,false,false,false,"nanopolish","",false,(0,0,0,0),false,OutputFiles("",""))
+    CpelNanoConfig() = new(10.0,10,350,3000,10,20,"./","cpelnano",false,false,false,false,"nanopolish","",
+        false,(0, 0, 0, 0),false,OutputFiles("./", "cpelnano"))
+    CpelNanoConfig(min_cov, max_size_subreg, size_est_reg, max_em_init, max_em_iters) = 
+        new(min_cov,10,max_size_subreg + 1,size_est_reg,max_em_init,max_em_iters,"","",
+        false,false,false,false,"nanopolish","",false,(0, 0, 0, 0),false,OutputFiles("", ""))
 end
 
 ##################################################################################################
@@ -70,7 +70,7 @@ mutable struct LogGs
     qp::Vector{Float64}                                 # Series of log(g2(+x_q))
     qm::Vector{Float64}                                 # Series of log(g2(-x_q))
     # Init Methods
-    LogGs() = new([],[],[],[])
+    LogGs() = new([], [], [], [])
 end
 
 # Structure for expectations
@@ -80,7 +80,7 @@ mutable struct Expectations
     log_g1::Vector{Float64}                             # Vector E[log g1(xp)]
     log_g2::Vector{Float64}                             # Vector E[log g2(xq)]
     # Init Methods
-    Expectations() = new([],[],[],[])
+    Expectations() = new([], [], [], [])
 end
 
 # Structure for matrices
@@ -93,7 +93,7 @@ mutable struct TransferMat
     log_Ws::Vector{Array{Float64,2}}                    # Series of log(W) matrices
     log_gs::LogGs                                       # log(g_i(±⋅))
     # Init Methods
-    TransferMat() = new([],[],[],[],[],[],LogGs())
+    TransferMat() = new([], [], [], [], [], [], LogGs())
 end
 
 # Structure for methylation call at CpG site
@@ -102,8 +102,8 @@ mutable struct MethCallCpgGrp
     log_pyx_u::Float64                                  # log p(y|x=-1) as computed by pore model
     log_pyx_m::Float64                                  # log p(y|x=+1) as computed by pore model
     # Init methods
-    MethCallCpgGrp() = new(false,NaN,NaN)
-    MethCallCpgGrp(log_pyx_u,log_pyx_m) = new(true,log_pyx_u,log_pyx_m)
+    MethCallCpgGrp() = new(false, NaN, NaN)
+    MethCallCpgGrp(log_pyx_u, log_pyx_m) = new(true, log_pyx_u, log_pyx_m)
 end
 
 # Structure for CpG groups
@@ -112,7 +112,7 @@ mutable struct CpgGrp
     grp_int::UnitRange{Int64}                           # Genomic interval of CpG group
     cpg_ind::UnitRange{Int64}                           # CpG indices for given group
     # Init methods
-    CpgGrp(grp_int,cpg_ind) = new(grp_int,cpg_ind)
+    CpgGrp(grp_int, cpg_ind) = new(grp_int, cpg_ind)
 end
 
 # Structure for analysis regions (aka subregions)
@@ -121,8 +121,8 @@ mutable struct AnalysisRegions
     chr_int::Vector{UnitRange{Int64}}                   # Genomic intervals
     cpg_ind::Vector{UnitRange{Int64}}                   # Indices of CpG sites
     # Init methods
-    AnalysisRegions() = new(0,[],[])
-    AnalysisRegions(chr_int,cpg_ind) = new(length(chr_int),chr_int,cpg_ind)
+    AnalysisRegions() = new(0, [], [])
+    AnalysisRegions(chr_int, cpg_ind) = new(length(chr_int), chr_int, cpg_ind)
 end
 
 # Structure for methylation observation vectors in a region
@@ -177,49 +177,40 @@ end
 
 # Struct methods
 get_depth_ith_cpg(i::Int64,calls::Vector{Vector{MethCallCpgGrp}})::Float64 = sum([x[i].obs for x in calls])
-get_ave_depth(reg::RegStruct)::Float64 = sum([get_depth_ith_cpg(i,reg.calls) for i=1:reg.L])/reg.L
+get_ave_depth(reg::RegStruct)::Float64 = sum([get_depth_ith_cpg(i, reg.calls) for i = 1:reg.L]) / reg.L
 is_grp_obs(i::Int64,calls::Vector{Vector{MethCallCpgGrp}})::Float64 = any([x[i].obs for x in calls] .== true)
-perc_gprs_obs(reg::RegStruct)::Float64 = sum([is_grp_obs(i,reg.calls) for i=1:reg.L])/reg.L
+perc_gprs_obs(reg::RegStruct)::Float64 = sum([is_grp_obs(i, reg.calls) for i = 1:reg.L]) / reg.L
 
 ##################################################################################################
 ## Hypothesis testing structs
 ##################################################################################################
 
-# Structure for α-subregion used in testing
-mutable struct SubregStatTestStruct
-    # Fields
+# Structure for analysis regions used in testing
+mutable struct NlsRegTestStruct
     proc::Bool                                          # Test done
     tmml_test::NTuple{2,Float64}                        # Pair (Tmml,Pmml)
     tnme_test::NTuple{2,Float64}                        # Pair (Tnme,Pnme)
-    tpdm_test::NTuple{2,Float64}                        # Pair (Tpdm,Ppdm)
+    tcmd_test::NTuple{2,Float64}                        # Pair (Tcmd,Pcmd)
     # Init Methods
-    SubregStatTestStruct() = new(false,(NaN,NaN),(NaN,NaN),(NaN,NaN))
+    NlsRegTestStruct() = new(false, (NaN, NaN), (NaN, NaN), (NaN, NaN))
 end
 
 # Structure for analysis region used in testing
 mutable struct RegStatTestStruct
-    # Fields
-    id::String                                          # Analysis region ID
     chr::String                                         # Chromosome of analysis region
     chrst::Int64                                        # Start position of region (1-based)
     chrend::Int64                                       # End position of region (1-based)
-    reg_tests::NTuple{2,Float64}                        # Region test
-    subreg_cpg_occ::Vector{Bool}                        # Binary vector with subregion occupancy
-    subreg_coords::Vector{NTuple{2,Int64}}              # Coordinates of α-subregions
-    subreg_tests::Vector{SubregStatTestStruct}          # Subregion tests
+    coords::Vector{NTuple{2,Int64}}                     # Coordinates of analysis regions
+    tests::Vector{NlsRegTestStruct}                     # Vector of tests results
     # Init method 1
     RegStatTestStruct() = new()
     # Init method 2
-    function RegStatTestStruct(reg_id,cpg_occ)
-        # Init
-        reg = new()
-        reg.id = reg_id
-        reg_data = split(reg_id,"_")
-        reg.chr = reg_data[1]
-        reg.chrst = parse(Int,reg_data[2])
-        reg.chrend = parse(Int,reg_data[3])
-        reg.subreg_cpg_occ = cpg_occ
-        reg.subreg_tests = Vector{SubregStatTestStruct}()
-        return reg
-    end
+    RegStatTestStruct(est_rs::RegStruct) = new(
+        est_rs.chr,
+        est_rs.chrst,
+        est_rs.chrend,
+        fill((0, 0), est_rs.nls_rgs.num),
+        fill(NlsRegTestStruct(), est_rs.nls_rgs.num)
+    )
+        
 end

@@ -295,16 +295,16 @@ function write_reg_diff_output(pmap_out::Vector{NTuple{2,Float64}},uniq_ids::Vec
 
 end
 """
-    `write_subreg_tmml_diff_output(PMAP_OUT,UNIQUE_IDS,PATH)`
+    `write_nls_reg_tmml_diff_output(PMAP_OUT,UNIQUE_IDS,PATH)`
 
     Function that writes output of Tmml α-subregion differential analysis.
 
     # Examples
     ```julia-repl
-    julia> CpelNano.write_subreg_tmml_diff_output(pmap_out,uniq_ids,path)
+    julia> CpelNano.write_nls_reg_tmml_diff_output(pmap_out,uniq_ids,path)
     ```
 """
-function write_subreg_tmml_diff_output(pmap_out::Vector{RegStatTestStruct},uniq_ids::Vector{String},path::String)::Nothing
+function write_nls_reg_tmml_diff_output(pmap_out::Vector{RegStatTestStruct},uniq_ids::Vector{String},path::String)::Nothing
 
     # Write
     open(path,"a") do io
@@ -317,7 +317,7 @@ function write_subreg_tmml_diff_output(pmap_out::Vector{RegStatTestStruct},uniq_
             aux_chrst = reg_data.chrst==1 ? 0 : reg_data.chrst
 
             # Get delimiters
-            total_num_sub = length(reg_data.subreg_cpg_occ)
+            total_num_sub = length(reg_data.nls_reg_cpg_occ)
             sts = get_delims(aux_chrst,reg_data.chrend,Float64(total_num_sub))
         
             # Loop over subregion
@@ -325,17 +325,17 @@ function write_subreg_tmml_diff_output(pmap_out::Vector{RegStatTestStruct},uniq_
             for j=1:total_num_sub
 
                 # Skip if no CpG sites in subregion
-                reg_data.subreg_cpg_occ[j] || continue
+                reg_data.nls_reg_cpg_occ[j] || continue
 
                 # Get subregion data
-                sub_reg_data = reg_data.subreg_tests[k]
+                sub_reg_data = reg_data.nls_reg_tests[k]
 
                 # Get coordinates of region
-                subreg_st = sts[j]==0 ? 1 : sts[j]
-                subreg_end = sts[j+1]
+                nls_reg_st = sts[j]==0 ? 1 : sts[j]
+                nls_reg_end = sts[j+1]
 
                 # Write Tmml statistics for k-th α-subregion
-                out_str = "$(reg_data.chr)\t$(subreg_st)\t$(subreg_end)\t" 
+                out_str = "$(reg_data.chr)\t$(nls_reg_st)\t$(nls_reg_end)\t" 
                 out_str *= "$(sub_reg_data.tmml_test[1])\t$(sub_reg_data.tmml_test[2])\n" 
                 write(io,out_str)
 
@@ -352,16 +352,16 @@ function write_subreg_tmml_diff_output(pmap_out::Vector{RegStatTestStruct},uniq_
 
 end
 """
-    `write_subreg_tnme_diff_output(PMAP_OUT,UNIQUE_IDS,PATH)`
+    `write_nls_reg_tnme_diff_output(PMAP_OUT,UNIQUE_IDS,PATH)`
 
     Function that writes output of Tnme α-subregion differential analysis.
 
     # Examples
     ```julia-repl
-    julia> CpelNano.write_subreg_tnme_diff_output(pmap_out,uniq_ids,path)
+    julia> CpelNano.write_nls_reg_tnme_diff_output(pmap_out,uniq_ids,path)
     ```
 """
-function write_subreg_tnme_diff_output(pmap_out::Vector{RegStatTestStruct},uniq_ids::Vector{String},path::String)::Nothing
+function write_nls_reg_tnme_diff_output(pmap_out::Vector{RegStatTestStruct},uniq_ids::Vector{String},path::String)::Nothing
 
     # Write
     open(path,"a") do io
@@ -374,7 +374,7 @@ function write_subreg_tnme_diff_output(pmap_out::Vector{RegStatTestStruct},uniq_
             aux_chrst = reg_data.chrst==1 ? 0 : reg_data.chrst
 
             # Get delimiters
-            total_num_sub = length(reg_data.subreg_cpg_occ)
+            total_num_sub = length(reg_data.nls_reg_cpg_occ)
             sts = get_delims(aux_chrst,reg_data.chrend,Float64(total_num_sub))
         
             # Loop over subregion
@@ -382,17 +382,17 @@ function write_subreg_tnme_diff_output(pmap_out::Vector{RegStatTestStruct},uniq_
             for j=1:total_num_sub
 
                 # Skip if no CpG sites in subregion
-                reg_data.subreg_cpg_occ[j] || continue
+                reg_data.nls_reg_cpg_occ[j] || continue
 
                 # Get subregion data
-                sub_reg_data = reg_data.subreg_tests[k]
+                sub_reg_data = reg_data.nls_reg_tests[k]
 
                 # Get coordinates of region
-                subreg_st = sts[j]==0 ? 1 : sts[j]
-                subreg_end = sts[j+1]
+                nls_reg_st = sts[j]==0 ? 1 : sts[j]
+                nls_reg_end = sts[j+1]
 
                 # Write Tmml statistics for k-th α-subregion
-                out_str = "$(reg_data.chr)\t$(subreg_st)\t$(subreg_end)\t" 
+                out_str = "$(reg_data.chr)\t$(nls_reg_st)\t$(nls_reg_end)\t" 
                 out_str *= "$(sub_reg_data.tnme_test[1])\t$(sub_reg_data.tnme_test[2])\n" 
                 write(io,out_str)
 
@@ -409,24 +409,24 @@ function write_subreg_tnme_diff_output(pmap_out::Vector{RegStatTestStruct},uniq_
 
 end
 """
-    `write_subreg_diff_output(PMAP_OUT,UNIQUE_IDS,CONFIG)`
+    `write_nls_reg_diff_output(PMAP_OUT,UNIQUE_IDS,CONFIG)`
 
     Function that writes output of Tmml & Tnme α-subregion differential analysis.
 
     # Examples
     ```julia-repl
-    julia> CpelNano.write_subreg_diff_output(pmap_out,uniq_ids,config)
+    julia> CpelNano.write_nls_reg_diff_output(pmap_out,uniq_ids,config)
     ```
 """
-function write_subreg_diff_output(pmap_out::Vector{RegStatTestStruct},uniq_ids::Vector{String},config::CpelNanoConfig)::Nothing
+function write_nls_reg_diff_output(pmap_out::Vector{RegStatTestStruct},uniq_ids::Vector{String},config::CpelNanoConfig)::Nothing
 
     # Paths
     mml_path = "$(config.out_dir)/$(config.out_prefix)_tmml_subreg.bedGraph"
     nme_path = "$(config.out_dir)/$(config.out_prefix)_tnme_subreg.bedGraph"
 
     # Write
-    write_subreg_tmml_diff_output(pmap_out,uniq_ids,mml_path)
-    write_subreg_tnme_diff_output(pmap_out,uniq_ids,nme_path)
+    write_nls_reg_tmml_diff_output(pmap_out,uniq_ids,mml_path)
+    write_nls_reg_tnme_diff_output(pmap_out,uniq_ids,nme_path)
     
     # Return nothing
     return nothing
