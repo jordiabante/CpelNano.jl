@@ -129,7 +129,7 @@ end
 
     # Examples
     ```julia-repl
-    julia> 
+    julia> CpelNano.comp_unmat_perm_stat_mml(μs_g1, μs_g2, perm_ids)
     ```
 """
 function comp_unmat_perm_stat_mml(μs_g1::Vector{Vector{Float64}}, μs_g2::Vector{Vector{Float64}}, perm_ids::Vector{Int64})::Vector{Float64}
@@ -150,7 +150,7 @@ end
 
     # Examples
     ```julia-repl
-    julia> 
+    julia> CpelNano.comp_unmat_stat_nme(hs_g1,hs_g2)
     ```
 """
 function comp_unmat_stat_nme(hs_g1::Vector{Vector{Float64}}, hs_g2::Vector{Vector{Float64}})::Vector{Float64}
@@ -170,7 +170,7 @@ end
 
     # Examples
     ```julia-repl
-    julia> 
+    julia> CpelNano.comp_unmat_perm_stat_nme(hs_g1,hs_g2,perm_ids)
     ```
 """
 function comp_unmat_perm_stat_nme(hs_g1::Vector{Vector{Float64}}, hs_g2::Vector{Vector{Float64}}, perm_ids::Vector{Int64})::Vector{Float64}
@@ -191,7 +191,7 @@ end
 
     # Examples
     ```julia-repl
-    julia> 
+    julia> CpelNano.unmat_nls_reg_test(ms_g1,ms_g2)
     ```
 """
 function unmat_est_reg_test(ms_g1::Vector{RegStruct}, ms_g2::Vector{RegStruct})::RegStatTestStruct
@@ -253,8 +253,8 @@ function unmat_est_reg_test(ms_g1::Vector{RegStruct}, ms_g2::Vector{RegStruct}):
         tcmd_perms_k = [perm[k] for perm in tcmd_perms]
 
         # Get number of permutation stats equal or above observed
-        tmml_pval_k = sum(abs.(tmml_perms_k) .>= abs.(tmml_obs[k]))
-        tnme_pval_k = sum(abs.(tnme_perms_k) .>= abs.(tnme_obs[k]))
+        tmml_pval_k = sum(abs.(tmml_perms_k) .>= abs(tmml_obs[k]))
+        tnme_pval_k = sum(abs.(tnme_perms_k) .>= abs(tnme_obs[k]))
         tcmd_pval_k = sum(tcmd_perms_k .>= tcmd_obs[k])
         
         # Compute p-values
@@ -438,7 +438,6 @@ function mat_est_reg_test(ms_g1::Vector{RegStruct}, ms_g2::Vector{RegStruct})::R
     # Get group label combinations to use
     exact = 2^length(ms_g1) < LMAX
     js = exact ? collect(0:2^length(ms_g1) - 1) : rand(0:2^length(ms_g1) - 1,LMAX)
-        # js = collect(0:2^length(ms_g1) - 1)
 
     # Compute permutation stats
     tmml_perms = CpelNano.comp_mat_perm_stats(mml_diffs, js)
@@ -464,8 +463,8 @@ function mat_est_reg_test(ms_g1::Vector{RegStruct}, ms_g2::Vector{RegStruct})::R
         tnme_perms_k = [perm[k] for perm in tnme_perms]
 
         # Get number of permutation stats equal or above observed
-        tmml_pval_k = sum(abs.(tmml_perms_k) .>= abs.(tmml_obs[k]))
-        tnme_pval_k = sum(abs.(tnme_perms_k) .>= abs.(tnme_obs[k]))
+        tmml_pval_k = sum(abs.(tmml_perms_k) .>= abs(tmml_obs[k]))
+        tnme_pval_k = sum(abs.(tnme_perms_k) .>= abs(tnme_obs[k]))
         
         # Compute p-values
         tmml_pvals[k] = exact ? tmml_pval_k / length(tmml_perms_k) : (1.0 + tmml_pval_k) / (1.0 + length(tmml_perms_k))
