@@ -29,7 +29,7 @@ const LOG2 = log(2.0)
 # WGBS data
 const THRESH_MAPQ = 39                      # MAPQ threshold (-10*log(p)) only true uni-reads
 const FLAGS_ALLOWED = [0,16,83,99,147,163]  # Flags allowed in BAM recs
-const log_pyx_wrong_x = -20.0
+const log_pyx_wrong_x = -50.0
 const log_pyx_right_x = 0.0 
 
 # Paramater space boundaries
@@ -47,7 +47,7 @@ const logD2 = log.([3.0 1.0; 1.0 3.0])
 const logD3 = log.([2.0 0.0; 0.0 3.0])
 
 # Hypthesis Testing
-const LMAX=1000
+const LMAX = 1000
 
 ###################################################################################################
 # SOURCE CODE

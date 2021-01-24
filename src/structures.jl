@@ -29,6 +29,7 @@ mutable struct CpelNanoConfig
     max_em_iters::Int64                 # Maximum number of iterations in each EM instance
     out_dir::String                     # Output directory
     out_prefix::String                  # Output prefix
+    mod_nse::Bool                       # Model noise in methylation calls
     informme_mode::Bool                 # Partition genome in the same way informME does
     matched::Bool                       # Matched or unmatched comparison
     filter::Bool                        # Filter hypothesis for more power
@@ -40,11 +41,12 @@ mutable struct CpelNanoConfig
     pe::Bool                            # Paired end (used if BS data)
     out_files::OutputFiles              # Name of output files
     # Init methods
-    CpelNanoConfig() = new(10.0,10,350,3000,10,20,"./","cpelnano",false,false,false,false,"nanopolish","",
+    CpelNanoConfig() = new(10.0,10,350,3000,10,20,"./","cpelnano",
+        true,false,false,false,false,"nanopolish","",
         false,(0, 0, 0, 0),false,OutputFiles("./", "cpelnano"))
     CpelNanoConfig(min_cov, max_size_subreg, size_est_reg, max_em_init, max_em_iters) = 
         new(min_cov,10,max_size_subreg + 1,size_est_reg,max_em_init,max_em_iters,"","",
-        false,false,false,false,"nanopolish","",false,(0, 0, 0, 0),false,OutputFiles("", ""))
+        true,false,false,false,false,"nanopolish","",false,(0, 0, 0, 0),false,OutputFiles("", ""))
 end
 
 ##################################################################################################

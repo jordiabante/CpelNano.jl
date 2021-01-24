@@ -39,9 +39,10 @@ outdir = "/Users/jordiabante/Desktop/"
 
 # IO
 config = CpelNano.CpelNanoConfig(); 
-config.out_prefix = "full_example";
-config.out_dir = outdir;
+config.mod_nse = true;
 config.verbose = false; # true;
+config.out_dir = outdir;
+config.out_prefix = "full_example_mod_nse_$(config.mod_nse)";
 
 # Analyze nano
 CpelNano.analyze_nano(nano,fasta,config)
@@ -80,8 +81,8 @@ fasta = "$(dataDir)/reference/hg38_chr17_43023997_43145780.fa"
 outdir = "$(dataDir)/cpelnano/"
 
 # Configuration
-min_cov=10.0; max_size_subreg=500; size_est_reg=4000; max_em_init=10; max_em_iters=20; 
-config = CpelNano.CpelNanoConfig(min_cov,max_size_subreg,size_est_reg,max_em_init,max_em_iters);
+min_cov = 10.0; max_size_subreg = 500; size_est_reg = 4000; max_em_init = 10; max_em_iters = 20; 
+config = CpelNano.CpelNanoConfig(min_cov, max_size_subreg, size_est_reg, max_em_init, max_em_iters);
 config.out_dir = outdir; config.out_prefix = "test";
 
 # Analyze each region in chr
@@ -102,11 +103,11 @@ println(String(read(theta_path)))
 #####################################################################################################
 
 # Read in model file
-models = CpelNano.read_model_file_chr(theta_path,"Reference")
+models = CpelNano.read_model_file_chr(theta_path, "Reference")
 CpelNano.comp_gjsd(models["Reference_1_4000"],models["Reference_1_4000"])
 
 # Get all models
-mod_files = fill(theta_path,5)
-mods = CpelNano.get_all_models_chr(mod_files,"Reference")
+mod_files = fill(theta_path, 5)
+mods = CpelNano.get_all_models_chr(mod_files, "Reference")
 CpelNano.get_unique_ids(mods)
-uniq_ids = unique(vcat(CpelNano.get_unique_ids(mods),CpelNano.get_unique_ids(mods)))
+uniq_ids = unique(vcat(CpelNano.get_unique_ids(mods), CpelNano.get_unique_ids(mods)))

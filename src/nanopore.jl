@@ -9,13 +9,15 @@
     julia> CpelNano.get_calls_nanopolish(call_dic,rs)
     ```
 """
-function get_calls_nanopolish!(call_dic::Dict{String,Vector{Vector{SubString}}},rs::RegStruct)::Nothing
+function get_calls_nanopolish!(call_dic::Dict{String,Vector{Vector{SubString}}},rs::RegStruct,mod_nse::Bool)::Nothing
 
     # For each read in call_dic
     calls = Vector{Vector{MethCallCpgGrp}}()
     @inbounds for kk in keys(call_dic)
+
         # Initizalize vector of group calls for the read
         call = [MethCallCpgGrp() for l=1:length(rs.cpg_grps)]
+        
         @inbounds for cpg_grp_dat in call_dic[kk]
             
             # Get chr_start (0-based in nanopolish)
@@ -36,14 +38,26 @@ function get_calls_nanopolish!(call_dic::Dict{String,Vector{Vector{SubString}}},
             end
             
             # Record log p(y|x̄)
-            call[x_index_st].log_pyx_m = parse(Float64,cpg_grp_dat[7])
-            call[x_index_st].log_pyx_u = parse(Float64,cpg_grp_dat[8])
-            
+            log_pyx_m = parse(Float64,cpg_grp_dat[7])
+            log_pyx_u = parse(Float64,cpg_grp_dat[8])
+            if mod_nse
+                # Modeling noise uses log p's given by nanopolish
+                call[x_index_st].log_pyx_m = log_pyx_m
+                call[x_index_st].log_pyx_u = log_pyx_u
+            else
+                # Not modeling noise does not use log p's given by nanopolish
+                call[x_index_st].log_pyx_m = log_pyx_m > log_pyx_u ? log_pyx_right_x : log_pyx_wrong_x
+                call[x_index_st].log_pyx_u = log_pyx_m > log_pyx_u ? log_pyx_wrong_x : log_pyx_right_x
+            end
+
             # CpG group is observed in read
             call[x_index_st].obs = true
             
         end
+        
+        # Push call
         push!(calls,call)
+
     end
     
     # Store call info
@@ -70,7 +84,7 @@ function get_calls!(rs::RegStruct,call_file::String,config::CpelNanoConfig)::Not
     if config.caller=="nanopolish"
         # nanopolish (sorted)
         data_dic = get_dic_nanopolish(rs,call_file)
-        get_calls_nanopolish!(data_dic,rs)
+        get_calls_nanopolish!(data_dic,rs,config.mod_nse)
     else
         # exit if not valid caller
         print_log("Invalid option for config.caller ...")
