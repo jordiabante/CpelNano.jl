@@ -11,7 +11,6 @@ using DelimitedFiles
 ## Constants
 const cov_levels = [5.0,10.0,15.0,20.0,25.0]
 const cov_labels = ["$(Int(c))x" for c in cov_levels]
-# const noise_levels = [0.5,1.0,1.5,2.0,2.5,3.0]
 const noise_levels = [2.0,2.5,3.0,3.5]
 const noise_labels = ["$(s)" for s in noise_levels]
 const aim_dir = "/Users/jordiabante/OneDrive - Johns Hopkins/CpelNano/Data/Simulations/Aim-2/"
@@ -422,13 +421,12 @@ end
 
 ## Parameter estimates
 
-# # Generate plot array
-# plt_arr = gen_param_plt_array()
+# Generate plot array
+plt_arr = gen_param_plt_array()
 
-# # Make plot
-# plot(plt_arr...,layout=(3, 2),size=(1000, 1200))
-# savefig("$(aim_dir)/Boxplots-Params-Aim-2.pdf")
-# savefig("$(aim_dir)/Boxplots-Params-Aim-2.png")
+# Make plot
+plot(plt_arr...,layout=(2, 2),size=(1000, 1000))
+savefig("$(aim_dir)/Boxplots-Params-Aim-2.pdf")
 
 ## E[X] vs X̄
 
@@ -438,7 +436,6 @@ plt_arr = gen_ey_plt_array()
 # Make plot
 plot(plt_arr...,layout=(2, 2),size=(1000, 1000))
 savefig("$(aim_dir)/Boxplots-EX-Aim-2.pdf")
-# savefig("$(aim_dir)/Boxplots-EX-Aim-2.png")
 
 ## E[XX] vs X̄
 
@@ -448,20 +445,23 @@ plt_arr = gen_eyy_plt_array()
 # Make plot
 plot(plt_arr...,layout=(2, 2),size=(1000, 1000))
 savefig("$(aim_dir)/Boxplots-EXX-Aim-2.pdf")
-# savefig("$(aim_dir)/Boxplots-EXX-Aim-2.png")
 
 ## Scatter plots for specific noise and cov
 
 # # Scatter parameters
-# println("Generating: Scatter parameters")
-# plt_params_scatter(10.0,1.0)
-# plt_params_scatter(10.0,2.0)
-# plt_params_scatter(20.0,1.0)
-# plt_params_scatter(20.0,2.0)
+println("Generating: Scatter parameters")
+plt_params_scatter(10.0,2.0)
+plt_params_scatter(20.0,2.0)
+plt_params_scatter(10.0,3.0)
+plt_params_scatter(20.0,3.0)
+plt_params_scatter(10.0,3.5)
+plt_params_scatter(20.0,3.5)
 
-# # Scatter Expectations
-# println("Generating: Scatter expectations")
-# plt_exp_scatter(10.0,1.0)
-# plt_exp_scatter(10.0,2.0)
-# plt_exp_scatter(20.0,1.0)
-# plt_exp_scatter(20.0,2.0)
+# Scatter Expectations
+println("Generating: Scatter expectations")
+plt_exp_scatter(10.0,2.0)
+plt_exp_scatter(20.0,2.0)
+plt_exp_scatter(10.0,3.0)
+plt_exp_scatter(20.0,3.0)
+plt_exp_scatter(10.0,3.5)
+plt_exp_scatter(20.0,3.5)

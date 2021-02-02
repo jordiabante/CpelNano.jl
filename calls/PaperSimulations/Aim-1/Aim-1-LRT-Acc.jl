@@ -2,6 +2,7 @@
 # AIM 1: nanopolish's LRT vs Accuracy
 #################################################################################################
 ## Deps
+using Dierckx
 using CodecZlib
 using StatsPlots
 using Distributions
@@ -10,9 +11,9 @@ using Plots.PlotMeasures
 
 ## Constants
 const noise_levels = ["$(s)" for s in collect(2.0:0.5:3.5)]
-const lr_ints = [-1000:0.01:-10,-10:0.01:-7.5,-7.5:0.01:-5,-5:0.01:-2.5,
-                 -2.5:0.01:-1.25,-1.25:0.01:-0.5,-0.5:0.01:0.5,0.5:0.01:1.25,1.25:0.01:2.5,
-                 2.5:0.01:5,5:0.01:7.5,7.5:0.01:10,10:0.01:1000]
+const lr_ints = [-1000:0.01:-10,-10:0.01:-7.5,-7.5:0.01:-5,-5:0.01:-4,-4:0.01:-3,-3:0.01:-2,
+                 -2:0.01:-1,-1:0.01:-0.5,-0.5:0.01:0.5,0.5:0.01:1,1:0.01:2,2:0.01:3,3:0.01:4,
+                 4:0.01:5,5:0.01:7.5,7.5:0.01:10,10:0.01:1000]
 const lr_labs = ["$(minimum(x)):$(maximum(x))" for x in lr_ints]
 const data_dir = "/Users/jordiabante/OneDrive - Johns Hopkins/CpelNano/Data/Simulations/Aim-1"
 
@@ -78,7 +79,7 @@ function map_noise_ex(s, lr_ints)
 end
 
 #################################################################################################
-# Functions
+# Calls
 #################################################################################################
 
 # Plot
@@ -104,7 +105,16 @@ for s in noise_levels
     push!(perc_curve, n_pts[n_bins_int + 1])
     perc_curve = [sum(perc_curve[1:i]) for i = 1:length(perc_curve)]
     acc_curve = [sum(acc_curve[1:i] .* perc_curve[1:i]) / sum(perc_curve[1:i]) for i = 1:length(perc_curve)]
-    plot!(plt_crv, perc_curve, acc_curve, label="\\sigma=$(s)")
+
+    # Add (0,1) point
+    pushfirst!(perc_curve, 0.0)
+    pushfirst!(acc_curve, 1.0)
+
+    # Fit spline curve
+    spl = Spline1D(perc_curve, acc_curve, k=3)
+
+    # Plot spline
+    plot!(plt_crv, 0.0:0.01:1.0, spl(0.0:0.01:1.0), label="\\sigma=$(s)")
 
 end
 plot(plt_crv, size=(700, 700))
