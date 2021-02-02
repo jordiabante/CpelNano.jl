@@ -270,6 +270,9 @@ function em_inst(rs::RegStruct,ϕ0::Vector{Float64},config::CpelNanoConfig)::Tup
     conv = false
     max_iters_hit = false
 
+    config.verbose && print_log("Starting EM algorithm instance...")
+    config.verbose && print_log("ϕt=$(ϕt); Q(ϕ)=$(comp_Q(rs,ϕt))")
+
     # Iterate
     while !conv && !max_iters_hit
 
@@ -329,6 +332,7 @@ function get_ϕhat!(rs::RegStruct,config::CpelNanoConfig)::Nothing
     ϕ0s = gen_ϕ0s(config.max_em_init)
 
     # Launch multiple instances of EM in parallel
+    config.verbose && print_log("Starting EM algorithm...")
     em_out = map(ϕ0->em_inst(rs,ϕ0,config),ϕ0s)
 
     # Choose ϕ with maximum expected loglike

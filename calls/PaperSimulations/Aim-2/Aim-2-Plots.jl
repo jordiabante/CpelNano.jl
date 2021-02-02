@@ -9,14 +9,11 @@ using Distributions
 using DelimitedFiles
 
 ## Constants
-# const cov_levels = [5.0,10.0]
-# const cov_labels = ["5x","10x"]
-# const noise_levels = [1.0,2.0]
-# const noise_labels = ["1.0","2.0"]
 const cov_levels = [5.0,10.0,15.0,20.0,25.0]
-const cov_labels = ["5x","10x","15x","20x","25x"]
-const noise_levels = [0.5,1.0,1.5,2.0,2.5,3.0]
-const noise_labels = ["0.5","1.0","1.5","2.0","2.5","3.0"]
+const cov_labels = ["$(Int(c))x" for c in cov_levels]
+# const noise_levels = [0.5,1.0,1.5,2.0,2.5,3.0]
+const noise_levels = [2.0,2.5,3.0,3.5]
+const noise_labels = ["$(s)" for s in noise_levels]
 const aim_dir = "/Users/jordiabante/OneDrive - Johns Hopkins/CpelNano/Data/Simulations/Aim-2/"
 const gt_dir = "/Users/jordiabante/OneDrive - Johns Hopkins/CpelNano/Data/Simulations/ground_truth/"
 const blind_friend_col = ["#999999","#E69F00","#56B4E9","#009E73","#F0E442","#0072B2","#D55E00","#CC79A7"]
@@ -160,16 +157,22 @@ function gen_ey_plt_array()
         println("Noise level: $(sig)")   
         ex_box_mat = fill(NaN, (length(gt_ex_sts), length(cov_labels)))
         smp_ex_box_mat = fill(NaN, (length(gt_ex_sts), length(cov_labels)))
+        nonoise_ex_box_mat = fill(NaN, (length(gt_ex_sts), length(cov_labels)))
         for (j, cove) in enumerate(cov_labels)
             # Get filenames
             ex_file = "$(aim_dir)/cpelnano/sigma_$(sig)/gm12878_chr22_$(cov_labels[j])_ex.txt.gz"
             smp_ex_file = "$(aim_dir)/sample_averages/sigma_$(sig)/gm12878_chr22_$(cov_labels[j])_ex.txt.gz"
+            nonoise_ex_file = "$(aim_dir)/cpelnano_nonoise/sigma_$(sig)/gm12878_chr22_$(cov_labels[j])_ex.txt.gz"
             # Read in files
             ex_sts, ex = read_in_ex_file(ex_file)
             smp_ex_sts, smp_exs = read_in_ex_file(smp_ex_file)
+            nonoise_ex_sts, nonoise_ex = read_in_ex_file(nonoise_ex_file)
             # Record performance metric for E[X] in matrix
             gt_sts_ind, ex_sts_ind = find_comm_regions(gt_ex_sts, ex_sts)
             ex_box_mat[gt_sts_ind,j] .= mae(gt_ex[gt_sts_ind], ex[ex_sts_ind]) ./ 2.0
+            # Record performance metric for E[X] (no noise modeling) in matrix
+            gt_sts_ind, nonoise_ex_sts_ind = find_comm_regions(gt_ex_sts, nonoise_ex_sts)
+            nonoise_ex_box_mat[gt_sts_ind,j] .= mae(gt_ex[gt_sts_ind], nonoise_ex[nonoise_ex_sts_ind]) ./ 2.0
             # Record performance metric for X̄ in matrix
             gt_sts_ind, smp_ex_sts_ind = find_comm_regions(gt_ex_sts, smp_ex_sts)
             smp_ex_box_mat[gt_sts_ind,j] .= mae(gt_ex[gt_sts_ind], smp_exs[smp_ex_sts_ind]) ./ 2.0
@@ -177,12 +180,21 @@ function gen_ey_plt_array()
 
         # Arrange E[X] data
         ex_data = vcat(ex_box_mat...)
-        ex_labels = fill("E[X]", length(ex_data))
+        ex_labels = fill("E[X] (M1)", length(ex_data))
         ex_covs = vcat([fill(cove, size(ex_box_mat)[1]) for cove in cov_labels]...)
         keepind = .!isnan.(ex_data)
         ex_data = ex_data[keepind]
         ex_labels = ex_labels[keepind]
         ex_covs = ex_covs[keepind]
+
+        # Arrange no noise modeling E[X] data
+        nonoise_ex_data = vcat(nonoise_ex_box_mat...)
+        nonoise_ex_labels = fill("E[X] (M2)", length(nonoise_ex_data))
+        nonoise_ex_covs = vcat([fill(cove, size(nonoise_ex_box_mat)[1]) for cove in cov_labels]...)
+        keepind = .!isnan.(nonoise_ex_data)
+        nonoise_ex_data = nonoise_ex_data[keepind]
+        nonoise_ex_labels = nonoise_ex_labels[keepind]
+        nonoise_ex_covs = nonoise_ex_covs[keepind]
 
         # Arrange X̄ data
         smp_ex_data = vcat(smp_ex_box_mat...)
@@ -194,15 +206,15 @@ function gen_ey_plt_array()
         smp_ex_covs = smp_ex_covs[keepind]
 
         # Push boxplot to array
-        plt_data = vcat(ex_data, smp_ex_data)
-        plt_labels = vcat(ex_labels, smp_ex_labels)
-        plt_covs = vcat(ex_covs, smp_ex_covs)
+        plt_data = vcat(ex_data, nonoise_ex_data, smp_ex_data)
+        plt_labels = vcat(ex_labels, nonoise_ex_labels, smp_ex_labels)
+        plt_covs = vcat(ex_covs, nonoise_ex_covs, smp_ex_covs)
         if i == 1
             plt = groupedboxplot(plt_covs,plt_data,group=plt_labels,bar_width=0.5,ylim=(0.0, 0.5),
-                title=noise_labels[i],xlab="Coverage",ylab="Absolute error",outliers=false)
+                title="\\sigma=$(noise_labels[i])",xlab="Coverage",ylab="Absolute error",outliers=false)
         else
             plt = groupedboxplot(plt_covs,plt_data,group=plt_labels,bar_width=0.5,ylim=(0.0, 0.5),
-                title=noise_labels[i],xlab="Coverage",ylab="Absolute error",label="",outliers=false)
+                title="\\sigma=$(noise_labels[i])",xlab="Coverage",ylab="Absolute error",label="",outliers=false)
         end
         push!(plt_arr, plt)
         
@@ -245,6 +257,7 @@ function gen_eyy_plt_array()
         println("Noise level: $(sig)")
         eyy_box_mat = fill(NaN, (length(gt_exx_cg1), length(cov_labels)))
         smp_eyy_box_mat = fill(NaN, (length(gt_exx_cg1), length(cov_labels)))
+        nonoise_eyy_box_mat = fill(NaN, (length(gt_exx_cg1), length(cov_labels)))
         for (j, cove) in enumerate(cov_labels)
             println("Coverage: $(cov_labels[j])")
             # Get filenames
@@ -252,17 +265,25 @@ function gen_eyy_plt_array()
             exx_file = "$(aim_dir)/cpelnano/sigma_$(sig)/gm12878_chr22_$(cov_labels[j])_exx.txt.gz"
             smp_ex_file = "$(aim_dir)/sample_averages/sigma_$(sig)/gm12878_chr22_$(cov_labels[j])_ex.txt.gz"
             smp_exx_file = "$(aim_dir)/sample_averages/sigma_$(sig)/gm12878_chr22_$(cov_labels[j])_exx.txt.gz"
+            nonoise_ex_file = "$(aim_dir)/cpelnano_nonoise/sigma_$(sig)/gm12878_chr22_$(cov_labels[j])_ex.txt.gz"
+            nonoise_exx_file = "$(aim_dir)/cpelnano_nonoise/sigma_$(sig)/gm12878_chr22_$(cov_labels[j])_exx.txt.gz"
             # Read in files
             ex_cg1, ex = read_in_ex_file(ex_file)
             smp_ex_cg1, smp_ex = read_in_ex_file(smp_ex_file)
+            nonoise_ex_cg1, nonoise_ex = read_in_ex_file(nonoise_ex_file)
             exx_cg1, exx = read_in_exx_file(exx_file)
             smp_exx_cg1, smp_exx = read_in_exx_file(smp_exx_file)
+            nonoise_exx_cg1, nonoise_exx = read_in_exx_file(nonoise_exx_file)
             # Compute E[YY] where Y=0.5*(X+1)
             eyy = comp_eyy(ex_cg1, ex, exx_cg1, exx)
             smp_eyy = comp_eyy(smp_ex_cg1, smp_ex, smp_exx_cg1, smp_exx)
+            nonoise_eyy = comp_eyy(nonoise_ex_cg1, nonoise_ex, nonoise_exx_cg1, nonoise_exx)
             # Record metric for E[YY] in matrix
             gt_sts_ind, exx_sts_ind = find_comm_regions(gt_exx_cg1, exx_cg1)
             eyy_box_mat[gt_sts_ind,j] .= mae(gt_eyy[gt_sts_ind], eyy[exx_sts_ind])
+            # Record metric for E[YY] (no noise) in matrix
+            gt_sts_ind, nonoise_exx_sts_ind = find_comm_regions(gt_exx_cg1, nonoise_exx_cg1)
+            nonoise_eyy_box_mat[gt_sts_ind,j] .= mae(gt_eyy[gt_sts_ind], nonoise_eyy[nonoise_exx_sts_ind])
             # Record metric for X̄ in matrix
             gt_sts_ind, smp_exx_sts_ind = find_comm_regions(gt_exx_cg1, smp_exx_cg1)
             smp_eyy_box_mat[gt_sts_ind,j] .= mae(gt_eyy[gt_sts_ind], smp_eyy[smp_exx_sts_ind])
@@ -270,12 +291,21 @@ function gen_eyy_plt_array()
 
         # Arrange E[YY] data
         eyy_data = vcat(eyy_box_mat...)
-        eyy_labels = fill("E[XX]", length(eyy_data))
+        eyy_labels = fill("E[XX] (M1)", length(eyy_data))
         eyy_covs = vcat([fill(cove, size(eyy_box_mat)[1]) for cove in cov_labels]...)
         keepind = .!isnan.(eyy_data)
         eyy_data = eyy_data[keepind]
         eyy_labels = eyy_labels[keepind]
         eyy_covs = eyy_covs[keepind]
+
+        # Arrange E[YY] (no noise) data
+        nonoise_eyy_data = vcat(nonoise_eyy_box_mat...)
+        nonoise_eyy_labels = fill("E[XX] (M2)", length(nonoise_eyy_data))
+        nonoise_eyy_covs = vcat([fill(cove, size(nonoise_eyy_box_mat)[1]) for cove in cov_labels]...)
+        keepind = .!isnan.(nonoise_eyy_data)
+        nonoise_eyy_data = nonoise_eyy_data[keepind]
+        nonoise_eyy_labels = nonoise_eyy_labels[keepind]
+        nonoise_eyy_covs = nonoise_eyy_covs[keepind]
 
         # Arrange X̄X̄ data
         smp_eyy_data = vcat(smp_eyy_box_mat...)
@@ -287,15 +317,15 @@ function gen_eyy_plt_array()
         smp_eyy_covs = smp_eyy_covs[keepind]
 
         # Push boxplot to array
-        plt_data = vcat(eyy_data, smp_eyy_data)
-        plt_covs = vcat(eyy_covs, smp_eyy_covs)
-        plt_labels = vcat(eyy_labels, smp_eyy_labels)
+        plt_data = vcat(eyy_data, nonoise_eyy_data, smp_eyy_data)
+        plt_covs = vcat(eyy_covs, nonoise_eyy_covs, smp_eyy_covs)
+        plt_labels = vcat(eyy_labels, nonoise_eyy_labels, smp_eyy_labels)
         if i == 1
             plt = groupedboxplot(plt_covs,plt_data,group=plt_labels,bar_width=0.5,ylim=(0.0, 0.5),
-                title=noise_labels[i],xlab="Coverage",ylab="Absolute error",outliers=false)
+                title="\\sigma=$(noise_labels[i])",xlab="Coverage",ylab="Absolute error",outliers=false)
         else
             plt = groupedboxplot(plt_covs,plt_data,group=plt_labels,bar_width=0.5,ylim=(0.0, 0.5),
-                title=noise_labels[i],xlab="Coverage",ylab="Absolute error",label="",outliers=false)
+                title="\\sigma=$(noise_labels[i])",xlab="Coverage",ylab="Absolute error",label="",outliers=false)
         end
         push!(plt_arr, plt)
         
@@ -392,13 +422,13 @@ end
 
 ## Parameter estimates
 
-# Generate plot array
-plt_arr = gen_param_plt_array()
+# # Generate plot array
+# plt_arr = gen_param_plt_array()
 
-# Make plot
-plot(plt_arr...,layout=(3, 2),size=(1000, 1200))
-savefig("$(aim_dir)/Boxplots-Params-Aim-2.pdf")
-savefig("$(aim_dir)/Boxplots-Params-Aim-2.png")
+# # Make plot
+# plot(plt_arr...,layout=(3, 2),size=(1000, 1200))
+# savefig("$(aim_dir)/Boxplots-Params-Aim-2.pdf")
+# savefig("$(aim_dir)/Boxplots-Params-Aim-2.png")
 
 ## E[X] vs X̄
 
@@ -406,9 +436,9 @@ savefig("$(aim_dir)/Boxplots-Params-Aim-2.png")
 plt_arr = gen_ey_plt_array()
 
 # Make plot
-plot(plt_arr...,layout=(3, 2),size=(1000, 1200))
+plot(plt_arr...,layout=(2, 2),size=(1000, 1000))
 savefig("$(aim_dir)/Boxplots-EX-Aim-2.pdf")
-savefig("$(aim_dir)/Boxplots-EX-Aim-2.png")
+# savefig("$(aim_dir)/Boxplots-EX-Aim-2.png")
 
 ## E[XX] vs X̄
 
@@ -416,22 +446,22 @@ savefig("$(aim_dir)/Boxplots-EX-Aim-2.png")
 plt_arr = gen_eyy_plt_array()
 
 # Make plot
-plot(plt_arr...,layout=(3, 2),size=(1000, 1200))
+plot(plt_arr...,layout=(2, 2),size=(1000, 1000))
 savefig("$(aim_dir)/Boxplots-EXX-Aim-2.pdf")
-savefig("$(aim_dir)/Boxplots-EXX-Aim-2.png")
+# savefig("$(aim_dir)/Boxplots-EXX-Aim-2.png")
 
 ## Scatter plots for specific noise and cov
 
-# Scatter parameters
-println("Generating: Scatter parameters")
-plt_params_scatter(10.0,1.0)
-plt_params_scatter(10.0,2.0)
-plt_params_scatter(20.0,1.0)
-plt_params_scatter(20.0,2.0)
+# # Scatter parameters
+# println("Generating: Scatter parameters")
+# plt_params_scatter(10.0,1.0)
+# plt_params_scatter(10.0,2.0)
+# plt_params_scatter(20.0,1.0)
+# plt_params_scatter(20.0,2.0)
 
-# Scatter Expectations
-println("Generating: Scatter expectations")
-plt_exp_scatter(10.0,1.0)
-plt_exp_scatter(10.0,2.0)
-plt_exp_scatter(20.0,1.0)
-plt_exp_scatter(20.0,2.0)
+# # Scatter Expectations
+# println("Generating: Scatter expectations")
+# plt_exp_scatter(10.0,1.0)
+# plt_exp_scatter(10.0,2.0)
+# plt_exp_scatter(20.0,1.0)
+# plt_exp_scatter(20.0,2.0)

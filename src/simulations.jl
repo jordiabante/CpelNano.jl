@@ -700,7 +700,7 @@ function cpel_samp_ont(m::Int64,α::Vector{Float64},β::Vector{Float64},pobs::Fl
             # Set call for x̄_l
             call[l].obs = true
             call[l].log_pyx_u = log_pyx_u
-        call[l].log_pyx_m = log_pyx_m
+            call[l].log_pyx_m = log_pyx_m
         end
         push!(calls, call)
     end
@@ -769,6 +769,40 @@ function cpel_samp_wgbs(m::Int64, α::Vector{Float64}, β::Vector{Float64}, pobs
     # Return data object
     return sim_struct
 
+end
+"""
+    `bin_calls!(RS)`
+    
+    Binarizes calls.
+    
+    # Examples
+    ```julia-repl
+    julia> CpelNano.bin_calls!(rs)
+    ```
+
+"""
+function bin_calls!(rs::CpelNano.RegStruct)::Nothing
+
+    # Loop over calls
+    for call in rs.calls
+        # Loop over sites
+        for meth_call in call
+            # If observed
+            if meth_call.obs
+                if meth_call.log_pyx_u >= meth_call.log_pyx_m
+                    meth_call.log_pyx_u = log_pyx_right_x
+                    meth_call.log_pyx_m = log_pyx_wrong_x
+                else
+                    meth_call.log_pyx_u = log_pyx_wrong_x
+                    meth_call.log_pyx_m = log_pyx_right_x
+                end
+            end
+        end
+    end
+    
+    # Return nothing
+    return nothing
+    
 end
 ##################################################################################################
 ## Metropolis Hastings (NOT USED)
