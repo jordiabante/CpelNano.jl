@@ -18,13 +18,40 @@ function comp_unmat_stat_cmd(mods_g1::Vector{RegStruct}, mods_g2::Vector{RegStru
     cmds = []
     @inbounds for s1 = 1:length(mods_g1)
         @inbounds for s2 = 1:length(mods_g2)
-            # TODO: consider computing only min{s1,s2} pairs
             push!(cmds, comp_cmd(mods_g1[s1], mods_g2[s2]))
         end
     end
 
     # Return vector of average CMD between groups
     return sum(cmds) / (length(mods_g1) * length(mods_g2))
+
+end
+"""
+    `comp_unmat_stat_cmd_fst(mods_g1,mods_g2)`
+
+    Function that computes a test statistic Tcmd for each analysis region in unmatched case 
+    between groups in fast mode.
+
+    # Examples
+    ```julia-repl
+    julia> CpelNano.comp_unmat_stat_cmd_fst(mods_g1,mods_g2)
+    ```
+"""
+function comp_unmat_stat_cmd_fst(mods_g1::Vector{RegStruct}, mods_g2::Vector{RegStruct})::Vector{Float64}
+    
+    # Choose pairs
+    n_pairs = min(length(mods_g1), length(mods_g2))
+    reps_g1 = sample(1:length(mods_g1), n_pairs; replace=false)
+    reps_g2 = sample(1:length(mods_g2), n_pairs; replace=false)
+
+    # Compute statistic
+    cmds = []
+    @inbounds for pair = 1:n_pairs
+        push!(cmds, comp_cmd(mods_g1[reps_g1[pair]], mods_g2[reps_g2[pair]]))
+    end
+
+    # Return vector of average CMD between groups
+    return sum(cmds) / n_pairs
 
 end
 """
@@ -45,7 +72,7 @@ function comp_unmat_perm_stat_cmd(mods_g1::Vector{RegStruct}, mods_g2::Vector{Re
     deleteat!(mods_g2_p, perm_ids)
 
     # Return stat for permutation
-    return comp_unmat_stat_cmd(mods_g1_p, mods_g2_p)
+    return comp_unmat_stat_cmd_fst(mods_g1_p, mods_g2_p)
     
 end
 """
@@ -84,7 +111,7 @@ function unmat_reg_test_tcmd(mods_g1::Vector{RegStruct}, mods_g2::Vector{RegStru
         end
     end
 
-    # Use method for random permutation. TODO: consider parallelization here
+    # Use method for random permutation
     tcmd_perms = map(x -> CpelNano.comp_unmat_perm_stat_cmd(mods_g1, mods_g2, x), comb_iter_used)
 
     # Compute p-values two-sided test
@@ -125,12 +152,12 @@ end
 """
     `comp_unmat_perm_stat_mml(μs_g1,μs_g2,PERM_IDS)`
 
-    Function that produces a permutation statistic for Tmml in unmatched case.
+    Function that produces a permutation statistic for Tmml (unmatched case).
 
     # Examples
     ```julia-repl
     julia> CpelNano.comp_unmat_perm_stat_mml(μs_g1, μs_g2, perm_ids)
-    ```
+```
 """
 function comp_unmat_perm_stat_mml(μs_g1::Vector{Vector{Float64}}, μs_g2::Vector{Vector{Float64}}, perm_ids::Vector{Int64})::Vector{Float64}
 
@@ -151,7 +178,7 @@ end
     # Examples
     ```julia-repl
     julia> CpelNano.comp_unmat_stat_nme(hs_g1,hs_g2)
-    ```
+```
 """
 function comp_unmat_stat_nme(hs_g1::Vector{Vector{Float64}}, hs_g2::Vector{Vector{Float64}})::Vector{Float64}
 
@@ -166,12 +193,12 @@ end
 """
     `comp_unmat_perm_stat_nme(hs_g1,hs_g2,PERM_IDS)`
 
-    Function that produces a permutation statistic for Tnme in unmatched case.
+    Function that produces a permutation statistic for Tnme (unmatched case).
 
     # Examples
     ```julia-repl
     julia> CpelNano.comp_unmat_perm_stat_nme(hs_g1,hs_g2,perm_ids)
-    ```
+```
 """
 function comp_unmat_perm_stat_nme(hs_g1::Vector{Vector{Float64}}, hs_g2::Vector{Vector{Float64}}, perm_ids::Vector{Int64})::Vector{Float64}
 
@@ -187,12 +214,12 @@ end
 """
     `unmat_nls_reg_test(MODELS_G1,MODELS_G2)`
 
-    Function that performs hypothesis testing in unmatched samples group comparison in the k-th analysis region.
+    Function that performs hypothesis testing in unmatched samples group comparison in an estimation region.
 
     # Examples
     ```julia-repl
     julia> CpelNano.unmat_nls_reg_test(ms_g1,ms_g2)
-    ```
+```
 """
 function unmat_est_reg_test(ms_g1::Vector{RegStruct}, ms_g2::Vector{RegStruct})::RegStatTestStruct
 
@@ -210,68 +237,73 @@ function unmat_est_reg_test(ms_g1::Vector{RegStruct}, ms_g2::Vector{RegStruct}):
     tnme_obs = comp_unmat_stat_nme(hs_g1, hs_g2)
     tcmd_obs = comp_unmat_stat_cmd(ms_g1, ms_g2)
 
-    # Compute number of possible randomizations
-    L = binomial(length(μs_g1) + length(μs_g2), length(μs_g1))
-    exact = L < LMAX
-
-    # Create iteratable object with all combinations
-    comb_iter = combinations(1:(length(μs_g1) + length(μs_g2)), length(μs_g1))
-
-    # Get group label combinations to use
-    comb_iter_used = []
-    if exact
-        # Use all group assignments
-        comb_iter_used = comb_iter
-    else
-        # Use Lmax group assignments
-        ind_subset = rand(1:L, LMAX)
-        @inbounds for (ind, comb) in enumerate(comb_iter)
-            (ind in ind_subset) && push!(comb_iter_used, comb)
-        end
-    end
-
-    # Use method for random permutation
-    tmml_perms = map(x -> comp_unmat_perm_stat_mml(μs_g1, μs_g2, x), comb_iter_used)
-    tnme_perms = map(x -> comp_unmat_perm_stat_nme(hs_g1, hs_g2, x), comb_iter_used)
-    tcmd_perms = map(x -> comp_unmat_perm_stat_cmd(ms_g1, ms_g2, x), comb_iter_used)
-
-    # Compute p-values two-sided test
+    # Init p-values
     tmml_pvals = fill(NaN, length(tmml_obs))
     tnme_pvals = fill(NaN, length(tnme_obs))
     tcmd_pvals = fill(NaN, length(tcmd_obs))
-    @inbounds for k in 1:length(tmml_obs)
+    
+    # Compute number of possible randomizations
+    L = binomial(length(μs_g1) + length(μs_g2), length(μs_g1))
 
-        # Check if data
-        isnan(tmml_obs[k]) && continue
+    # If enough data compute p-values
+    if L>20
         
-        # Set processed as true
-        test_struct.tests[k].proc = true
+        # Check if exact test
+        exact = L < LMAX
 
-        # Get permutation stats from k-th analysis region
-        tmml_perms_k = [perm[k] for perm in tmml_perms]
-        tnme_perms_k = [perm[k] for perm in tnme_perms]
-        tcmd_perms_k = [perm[k] for perm in tcmd_perms]
+        # Create iteratable object with all combinations
+        comb_iter = combinations(1:(length(μs_g1) + length(μs_g2)), length(μs_g1))
 
-        # Get number of permutation stats equal or above observed
-        tmml_pval_k = sum(abs.(tmml_perms_k) .>= abs(tmml_obs[k]))
-        tnme_pval_k = sum(abs.(tnme_perms_k) .>= abs(tnme_obs[k]))
-        tcmd_pval_k = sum(tcmd_perms_k .>= tcmd_obs[k])
-        
-        # Compute p-values
-        tmml_pvals[k] = exact ? tmml_pval_k / length(tmml_perms_k) : (1.0 + tmml_pval_k) / (1.0 + length(tmml_perms_k))
-        tnme_pvals[k] = exact ? tnme_pval_k / length(tnme_perms_k) : (1.0 + tnme_pval_k) / (1.0 + length(tnme_perms_k))
-        tcmd_pvals[k] = exact ? tcmd_pval_k / length(tcmd_perms_k) : (1.0 + tcmd_pval_k) / (1.0 + length(tcmd_perms_k))
+        # Get group label combinations to use
+        comb_iter_used = []
+        if exact
+            # Use all group assignments
+            comb_iter_used = comb_iter
+        else
+            # Use Lmax group assignments
+            ind_subset = rand(1:L, LMAX)
+            @inbounds for (ind, comb) in enumerate(comb_iter)
+                (ind in ind_subset) && push!(comb_iter_used, comb)
+            end
+        end
+
+        # Use method for random permutation
+        tmml_perms = map(x -> comp_unmat_perm_stat_mml(μs_g1, μs_g2, x), comb_iter_used)
+        tnme_perms = map(x -> comp_unmat_perm_stat_nme(hs_g1, hs_g2, x), comb_iter_used)
+        tcmd_perms = map(x -> comp_unmat_perm_stat_cmd(ms_g1, ms_g2, x), comb_iter_used)
+
+        # Compute p-values two-sided test
+        @inbounds for k in 1:length(tmml_obs)
+
+            # Check if data
+            isnan(tmml_obs[k]) && continue
+            
+            # Get permutation stats from k-th analysis region
+            tmml_perms_k = [perm[k] for perm in tmml_perms]
+            tnme_perms_k = [perm[k] for perm in tnme_perms]
+            tcmd_perms_k = [perm[k] for perm in tcmd_perms]
+
+            # Get number of permutation stats equal or above observed
+            tmml_pval_k = sum(abs.(tmml_perms_k) .>= abs(tmml_obs[k]))
+            tnme_pval_k = sum(abs.(tnme_perms_k) .>= abs(tnme_obs[k]))
+            tcmd_pval_k = sum(tcmd_perms_k .>= tcmd_obs[k])
+            
+            # Compute p-values
+            tmml_pvals[k] = exact ? tmml_pval_k / length(tmml_perms_k) : (1.0 + tmml_pval_k) / (1.0 + length(tmml_perms_k))
+            tnme_pvals[k] = exact ? tnme_pval_k / length(tnme_perms_k) : (1.0 + tnme_pval_k) / (1.0 + length(tnme_perms_k))
+            tcmd_pvals[k] = exact ? tcmd_pval_k / length(tcmd_perms_k) : (1.0 + tcmd_pval_k) / (1.0 + length(tcmd_perms_k))
+
+        end
 
     end
     
     # Fill return object
-    @inbounds for k in 1:length(tmml_pvals)
-        test_struct.tests[k].proc || continue
-        test_struct.tests[k].tmml_test = (tmml_obs[k], tmml_pvals[k])
-        test_struct.tests[k].tnme_test = (tnme_obs[k], tnme_pvals[k])
-        test_struct.tests[k].tcmd_test = (tcmd_obs[k], tcmd_pvals[k])
+    @inbounds for k in 1:length(tmml_obs)
+        test_struct.tests.tmml_test[k] = (tmml_obs[k],tmml_pvals[k])
+        test_struct.tests.tnme_test[k] = (tnme_obs[k],tnme_pvals[k])
+        test_struct.tests.tcmd_test[k] = (tcmd_obs[k],tcmd_pvals[k])
     end
-    
+
     # Return output structure
     return test_struct
     
@@ -328,7 +360,7 @@ end
     # Examples
     ```julia-repl
     julia> CpelNano.comp_mat_diff_mml(μs_g1,μs_g2)
-```
+    ```
 """
 function comp_mat_diff_mml(μs_g1::Vector{Vector{Float64}}, μs_g2::Vector{Vector{Float64}})::Vector{Vector{Float64}}
     
@@ -350,7 +382,7 @@ end
     # Examples
     ```julia-repl
     julia> CpelNano.comp_mat_diff_mml(hs_g1,hs_g2)
-```
+    ```
 """
 function comp_mat_diff_nme(hs_g1::Vector{Vector{Float64}}, hs_g2::Vector{Vector{Float64}})::Vector{Vector{Float64}}
     
@@ -373,7 +405,7 @@ end
     # Examples
     ```julia-repl
     julia> CpelNano.comp_mat_j_stat(diffs,j)
-```
+    ```
 """
 function comp_mat_j_stat(diffs::Vector{Vector{Float64}}, j::Int64)::Vector{Float64}
     
@@ -410,9 +442,9 @@ function comp_mat_perm_stats(diffs::Vector{Vector{Float64}}, js::Vector{Int64}):
 
 end
 """
-    `mat_est_reg_test(MODELS_G1,MODELS_G2,K)`
+    `mat_est_reg_test(MODELS_G1,MODELS_G2)`
 
-    Function that performs hypothesis testing in unmatched samples group comparison in the k-th analysis region.
+    Function that performs hypothesis testing in unmatched samples group comparison in an estimation region.
 
     # Examples
     ```julia-repl
@@ -430,58 +462,245 @@ function mat_est_reg_test(ms_g1::Vector{RegStruct}, ms_g2::Vector{RegStruct})::R
     hs_g1 = [m.nme for m in ms_g1]
     hs_g2 = [m.nme for m in ms_g2]
 
-    # Compute observed stats
+    # Compute observed differences
     mml_diffs = CpelNano.comp_mat_diff_mml(μs_g1, μs_g2)
     nme_diffs = CpelNano.comp_mat_diff_nme(hs_g1, hs_g2)
-    tcmd_obs = CpelNano.comp_mat_stat_tcmd(ms_g1, ms_g2)
-
-    # Get group label combinations to use
-    exact = 2^length(ms_g1) < LMAX
-    js = exact ? collect(0:2^length(ms_g1) - 1) : rand(0:2^length(ms_g1) - 1,LMAX)
-
-    # Compute permutation stats
-    tmml_perms = CpelNano.comp_mat_perm_stats(mml_diffs, js)
-    tnme_perms = CpelNano.comp_mat_perm_stats(nme_diffs, js)
-
+    
     # Compute observed stats
     tmml_obs = sum(mml_diffs) / length(ms_g1)
     tnme_obs = sum(nme_diffs) / length(ms_g1)
-    
-    # Compute p-values two-sided test
+    tcmd_obs = CpelNano.comp_mat_stat_tcmd(ms_g1, ms_g2)
+
+    # Init p-values
     tmml_pvals = fill(NaN, length(tmml_obs))
     tnme_pvals = fill(NaN, length(tnme_obs))
-    @inbounds for k in 1:length(tmml_obs)
+    
+    # If enough data compute p-values
+    if (0.5^(length(μs_g1)-1))<0.05
+    
+        # Get group label combinations to use
+        exact = 2^length(ms_g1) < LMAX
+        js = exact ? collect(0:2^length(ms_g1) - 1) : rand(0:2^length(ms_g1) - 1, LMAX)
 
-        # Check if data
-        isnan(tmml_obs[k]) && continue
+        # Compute permutation stats
+        tmml_perms = CpelNano.comp_mat_perm_stats(mml_diffs, js)
+        tnme_perms = CpelNano.comp_mat_perm_stats(nme_diffs, js)
         
-        # Set processed as true
-        test_struct.tests[k].proc = true
+        # Compute p-values two-sided test
+        @inbounds for k in 1:length(tmml_obs)
 
-        # Get permutation stats from k-th analysis region
-        tmml_perms_k = [perm[k] for perm in tmml_perms]
-        tnme_perms_k = [perm[k] for perm in tnme_perms]
+            # Check if data
+            isnan(tmml_obs[k]) && continue
 
-        # Get number of permutation stats equal or above observed
-        tmml_pval_k = sum(abs.(tmml_perms_k) .>= abs(tmml_obs[k]))
-        tnme_pval_k = sum(abs.(tnme_perms_k) .>= abs(tnme_obs[k]))
-        
-        # Compute p-values
-        tmml_pvals[k] = exact ? tmml_pval_k / length(tmml_perms_k) : (1.0 + tmml_pval_k) / (1.0 + length(tmml_perms_k))
-        tnme_pvals[k] = exact ? tnme_pval_k / length(tnme_perms_k) : (1.0 + tnme_pval_k) / (1.0 + length(tnme_perms_k))
+            # Get permutation stats from k-th analysis region
+            tmml_perms_k = [perm[k] for perm in tmml_perms]
+            tnme_perms_k = [perm[k] for perm in tnme_perms]
 
+            # Get number of permutation stats equal or above observed
+            tmml_pval_k = sum(abs.(tmml_perms_k) .>= abs(tmml_obs[k]))
+            tnme_pval_k = sum(abs.(tnme_perms_k) .>= abs(tnme_obs[k]))
+            
+            # Compute p-values
+            tmml_pvals[k] = exact ? tmml_pval_k / length(tmml_perms_k) : (1.0 + tmml_pval_k) / (1.0 + length(tmml_perms_k))
+            tnme_pvals[k] = exact ? tnme_pval_k / length(tnme_perms_k) : (1.0 + tnme_pval_k) / (1.0 + length(tnme_perms_k))
+
+        end
 
     end
 
     # Fill return object
     @inbounds for k in 1:length(tmml_pvals)
-        test_struct.tests[k].proc || continue
-        test_struct.tests[k].tmml_test = (tmml_obs[k], tmml_pvals[k])
-        test_struct.tests[k].tnme_test = (tnme_obs[k], tnme_pvals[k])
-        test_struct.tests[k].tcmd_test = (tcmd_obs[k], NaN)
+        test_struct.tests.tmml_test[k] = (tmml_obs[k], tmml_pvals[k])
+        test_struct.tests.tnme_test[k] = (tnme_obs[k], tnme_pvals[k])
+        test_struct.tests.tcmd_test[k] = (tcmd_obs[k], NaN)
     end
 
     # Return output structure
     return test_struct
     
+end
+##################################################################################################
+## User functions
+##################################################################################################
+"""
+    `read_in_grp_mods(MOD_FILES,CHR,FA_REC,CONFIG)`
+
+    Function that reads in model files of group in chromosome `CHR`.
+
+    # Examples
+    ```julia-repl
+    julia> CpelNano.read_in_grp_mods(mod_fls,chr,fa_rec,config)
+    ```
+"""
+function read_in_grp_mods(mod_fls::Vector{String}, chr::String, fa_rec::FASTA.Record, config::CpelNanoConfig)::Vector{Dict{String,RegStruct}}
+    
+    # Read in models
+    ms = Vector{Dict{String,RegStruct}}()
+    for f in mod_fls
+        push!(ms, read_mod_file_chr(f, chr, fa_rec, config))
+    end
+
+    # Return models
+    return ms
+
+end
+"""
+    `find_comm_regs(MODS_G1,MODS_G2)`
+
+    Function that finds common regions between the two groups.
+
+    # Examples
+    ```julia-repl
+    julia> CpelNano.find_comm_regs(ms_g1,ms_g2)
+    ```
+"""
+function find_comm_regs(ms_g1::Vector{Dict{String,RegStruct}}, ms_g2::Vector{Dict{String,RegStruct}})::Vector{String}
+    
+    # Deal with group 1
+    g1_dic = Dict{String,Int64}()
+    for rep in ms_g1
+        for k in keys(rep)
+            g1_dic[k] = k in keys(g1_dic) ? g1_dic[k] + 1 : 1
+        end
+    end
+    
+    # Deal with group 2
+    g2_dic = Dict{String,Int64}()
+    for rep in ms_g2
+        for k in keys(rep)
+            g2_dic[k] = k in keys(g2_dic) ? g2_dic[k] + 1 : 1
+        end
+    end
+    
+    # Common regions
+    comm_regs = Vector{String}()
+    for k in keys(g1_dic)
+        k in keys(g2_dic) && push!(comm_regs, k)
+    end
+
+    # Return common regions
+    return comm_regs
+
+end
+"""
+    `pmap_diff_grp_comp(REG_ID,MODS_G1,MODS_G2,CONFIG)`
+
+    Function that performs differential methylation analysis between groups given two groups of 
+    CpelNano model files at a given estimation region `REG_ID`.
+
+    # Examples
+    ```julia-repl
+    julia> CpelNano.pmap_diff_grp_comp(reg_id,mods_g1,mods_g2,config)
+    ```
+"""
+function pmap_diff_grp_comp(reg_id::String, ms_g1::Vector{Dict{String,RegStruct}}, ms_g2::Vector{Dict{String,RegStruct}}, config::CpelNanoConfig)::RegStatTestStruct
+
+    
+    ## Perform testing
+    
+    print_log("Working on: $(reg_id)")
+    
+    # Matched vs Unmatched
+    if config.matched
+
+        ## Get available pairs for estimation region
+        reg_ms_g1 = Vector{RegStruct}()
+        reg_ms_g2 = Vector{RegStruct}()
+        for rep_ind in 1:length(ms_g1)
+            if haskey(ms_g1[rep_ind],reg_id) && haskey(ms_g2[rep_ind],reg_id)
+                # Get sample dictionaries
+                rep_dic_g1 = ms_g1[rep_ind]
+                rep_dic_g2 = ms_g2[rep_ind]
+                # Push pair
+                push!(reg_ms_g1, rep_dic_g1[reg_id])
+                push!(reg_ms_g2, rep_dic_g2[reg_id])
+            end
+        end
+        
+        # Matched test
+        out_test = mat_est_reg_test(reg_ms_g1, reg_ms_g2)
+
+    else
+
+        ## Get models for specific region
+    
+        # Group 1
+        reg_ms_g1 = Vector{RegStruct}()
+        for dict in ms_g1
+            haskey(dict, reg_id) && push!(reg_ms_g1, dict[reg_id])
+        end
+    
+        # Group 2
+        reg_ms_g2 = Vector{RegStruct}()
+        for dict in ms_g2
+            haskey(dict, reg_id) && push!(reg_ms_g2, dict[reg_id])
+        end
+        
+        ## Unmatched test
+        out_test = unmat_est_reg_test(reg_ms_g1, reg_ms_g2)
+
+    end
+
+    # Return test struct
+    return out_test
+
+end
+"""
+    `diff_grp_comp(MODEL_FILES_G1,MODEL_FILES_G2,FASTA,CONFIG)`
+
+    Function that performs differential methylation analysis between groups given two groups of 
+    CpelNano model files.
+
+    # Examples
+    ```julia-repl
+    julia> CpelNano.diff_grp_comp(mod_fls_g1,mod_fls_g2,fasta,config)
+    ```
+"""
+function diff_grp_comp(mod_fls_g1::Vector{String}, mod_fls_g2::Vector{String}, fasta::String, config::CpelNanoConfig)::Nothing
+
+    # Find chromosomes
+    chr_names, chr_sizes = get_genome_info(fasta)
+
+    # Create output directory if not existant
+    isdir(config.out_dir) || mkdir(config.out_dir)
+
+    # Get output file names
+    config.out_diff_files = OutputDiffFiles(config.out_dir, config.out_prefix)
+
+    # Check if output file exists
+    check_diff_output_exists(config) && return nothing
+
+    # Loop over chromosomes
+    for (i, chr) in enumerate(chr_names)
+        
+        print_log("Processing chromosome $(chr)")
+
+        ## Get fasta record
+
+        fa_rec = get_chr_fa_rec(chr, fasta)
+
+        ## Read in models
+
+        ms_g1 = read_in_grp_mods(mod_fls_g1, chr, fa_rec, config)
+        ms_g2 = read_in_grp_mods(mod_fls_g2, chr, fa_rec, config)
+
+        ## Find regions with at least one sample per group
+        
+        comm_regs = find_comm_regs(ms_g1, ms_g2)
+        
+        # If no data in chromosome continue
+        length(comm_regs) > 0 || continue
+        config.verbose && print_log("Comm regions: $(comm_regs)")
+
+        ## Process each region
+        pmap_out = pmap(x -> pmap_diff_grp_comp(x, ms_g1, ms_g2, config), comm_regs)
+
+        ## Write chromosome output
+        write_diff_output(pmap_out, config)
+
+    end
+
+    # Return nothing
+    return nothing
+
 end

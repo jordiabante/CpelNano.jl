@@ -274,7 +274,7 @@ end
     `reads_reg_chr(reg_file,chr_name,fasta,fa_record)`
     
     Returns a list of RegStructs for every partition in chromosome given `reg_file` containing all 
-    analysis regions in the chromosome. WARNING: this function assumes there is an existing model
+    estimation regions in the chromosome. WARNING: this function assumes there is an existing model
     for each single region.
     
     # Examples
@@ -337,7 +337,7 @@ function read_reg_chr(reg_file::String, chr_name::String, fasta::String, fa_reco
  
     end
  
-     # Return list of RegStructs in chromosome,in same order as chromosome partitions
+     # Return list of RegStructs in chromosome in same order as chromosome partitions
     return model_regs
  
 end

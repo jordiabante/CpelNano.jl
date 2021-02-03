@@ -51,6 +51,34 @@ function check_output_exists(config::CpelNanoConfig)::Bool
     return exists
 
 end
+"""
+    `check_diff_output_exists(CONFIG)`
+
+    Function that checks if at least one differential output file exists.
+
+    # Examples
+    ```julia-repl
+    julia> CpelNano.check_diff_output_exists(config)
+    ```
+"""
+function check_diff_output_exists(config::CpelNanoConfig)::Bool
+    
+    # Init
+    exists = isfile(config.out_diff_files.tmml_file)
+    exists |= isfile(config.out_diff_files.tnme_file)
+    exists |= isfile(config.out_diff_files.tcmd_file)
+
+    # Print out message if output exists
+    if exists
+        message = "At least an output file exists. Please, change the output directory and try again."
+        print_log(message)
+        sleep(5)
+    end
+    
+    # Return bool
+    return exists
+
+end
 ##################################################################################################
 # ESTIMATION OUTPUT
 ##################################################################################################
@@ -131,7 +159,7 @@ function write_output_mml(path::String,regs_data::Vector{RegStruct})::Nothing
             # Check if region analyzed
             rs.proc || continue
 
-            # Loop over subregion
+            # Loop over analysis region
             @inbounds for k=1:rs.nls_rgs.num
 
                 # Check if data 
@@ -172,7 +200,7 @@ function write_output_nme(path::String,regs_data::Vector{RegStruct})::Nothing
             # Check if region analyzed
             rs.proc || continue
 
-            # Loop over subregion
+            # Loop over analysis region
             @inbounds for k=1:rs.nls_rgs.num
 
                 # Check if data 
@@ -252,98 +280,38 @@ function write_output(regs_data::Vector{RegStruct},config::CpelNanoConfig)::Noth
     
     # Return nothing
     return nothing
-
+    
 end
 ##################################################################################################
 # DIFFERENTIAL ANALYSIS
 ##################################################################################################
 """
-    `write_reg_diff_output(PMAP_OUT,UNIQUE_IDS,CONFIG)`
+    `write_output_tmml(PATH,TEST_DATA)`
 
-    Function that writes output of Tpdm region differential analysis.
-
-    # Examples
-    ```julia-repl
-    julia> CpelNano.write_reg_diff_output(pmap_out,uniq_ids,config)
-    ```
-"""
-function write_reg_diff_output(pmap_out::Vector{NTuple{2,Float64}},uniq_ids::Vector{String},config::CpelNanoConfig)::Nothing
-
-    # Paths
-    outpath = "$(config.out_dir)/$(config.out_prefix)_tpdm_reg.bedGraph"
-
-    # Write
-    open(outpath,"a") do io
-        @inbounds for i=1:length(uniq_ids)
-
-            # Get analysis region vector info
-            chr_data = split(uniq_ids[i],"_")
-
-            # Assign values
-            chr = chr_data[1]
-            chrst = parse(Int,chr_data[2])
-            chrend = parse(Int,chr_data[3])
-
-            # Write to file
-            write(io,"$(chr)\t$(chrst)\t$(chrend)\t$(pmap_out[i][1])\t$(pmap_out[i][2])\n")
-
-        end
-    end
-    
-    # Return nothing
-    return nothing
-
-end
-"""
-    `write_nls_reg_tmml_diff_output(PMAP_OUT,UNIQUE_IDS,PATH)`
-
-    Function that writes output of Tmml analysis region differential analysis.
+    Function that writes differential analysis output for statistic Tmml to output files.
 
     # Examples
     ```julia-repl
-    julia> CpelNano.write_nls_reg_tmml_diff_output(pmap_out,uniq_ids,path)
+    julia> CpelNano.write_output_tmml(path,test_data)
     ```
 """
-function write_nls_reg_tmml_diff_output(pmap_out::Vector{RegStatTestStruct},uniq_ids::Vector{String},path::String)::Nothing
+function write_output_tmml(path::String,test_data::Vector{RegStatTestStruct})::Nothing
 
     # Write
     open(path,"a") do io
-        @inbounds for i=1:length(uniq_ids)
-
-            # Get reg data
-            reg_data = pmap_out[i]
-
-            # Create aux start for the first analysis region
-            aux_chrst = reg_data.chrst==1 ? 0 : reg_data.chrst
-
-            # Get delimiters
-            total_num_sub = length(reg_data.nls_reg_cpg_occ)
-            sts = get_delims(aux_chrst,reg_data.chrend,Float64(total_num_sub))
-        
-            # Loop over subregion
-            k = 1
-            for j=1:total_num_sub
-
-                # Skip if no CpG sites in subregion
-                reg_data.nls_reg_cpg_occ[j] || continue
-
-                # Get subregion data
-                sub_reg_data = reg_data.nls_reg_tests[k]
-
-                # Get coordinates of region
-                nls_reg_st = sts[j]==0 ? 1 : sts[j]
-                nls_reg_end = sts[j+1]
-
-                # Write Tmml statistics for k-th analysis region
-                out_str = "$(reg_data.chr)\t$(nls_reg_st)\t$(nls_reg_end)\t" 
-                out_str *= "$(sub_reg_data.tmml_test[1])\t$(sub_reg_data.tmml_test[2])\n" 
-                write(io,out_str)
-
-                # Increase counter
-                k += 1
-
+        for ts in test_data
+            # Loop over analysis region
+            @inbounds for k=1:length(ts.coords)
+                # Gather data
+                chrst = minimum(ts.coords[k])
+                chrend = maximum(ts.coords[k])
+                tmml = ts.tests.tmml_test[k][1]
+                pmml = ts.tests.tmml_test[k][2]
+                # Skip if no CGs
+                isnan(tmml) && continue
+                # Write for k-th analysis region
+                write(io,"$(ts.chr)\t$(chrst)\t$(chrend)\t$(tmml)\t$(pmml)\n")
             end
-
         end
     end
     
@@ -352,55 +320,32 @@ function write_nls_reg_tmml_diff_output(pmap_out::Vector{RegStatTestStruct},uniq
 
 end
 """
-    `write_nls_reg_tnme_diff_output(PMAP_OUT,UNIQUE_IDS,PATH)`
+    `write_output_tnme(PATH,TEST_DATA)`
 
-    Function that writes output of Tnme analysis region differential analysis.
+    Function that writes differential analysis output for statistic Tnme to output files.
 
     # Examples
     ```julia-repl
-    julia> CpelNano.write_nls_reg_tnme_diff_output(pmap_out,uniq_ids,path)
+    julia> CpelNano.write_output_tnme(path,test_data)
     ```
 """
-function write_nls_reg_tnme_diff_output(pmap_out::Vector{RegStatTestStruct},uniq_ids::Vector{String},path::String)::Nothing
+function write_output_tnme(path::String,test_data::Vector{RegStatTestStruct})::Nothing
 
     # Write
     open(path,"a") do io
-        @inbounds for i=1:length(uniq_ids)
-
-            # Get reg data
-            reg_data = pmap_out[i]
-
-            # Create aux start for the first analysis region
-            aux_chrst = reg_data.chrst==1 ? 0 : reg_data.chrst
-
-            # Get delimiters
-            total_num_sub = length(reg_data.nls_reg_cpg_occ)
-            sts = get_delims(aux_chrst,reg_data.chrend,Float64(total_num_sub))
-        
-            # Loop over subregion
-            k = 1
-            for j=1:total_num_sub
-
-                # Skip if no CpG sites in subregion
-                reg_data.nls_reg_cpg_occ[j] || continue
-
-                # Get subregion data
-                sub_reg_data = reg_data.nls_reg_tests[k]
-
-                # Get coordinates of region
-                nls_reg_st = sts[j]==0 ? 1 : sts[j]
-                nls_reg_end = sts[j+1]
-
-                # Write Tmml statistics for k-th analysis region
-                out_str = "$(reg_data.chr)\t$(nls_reg_st)\t$(nls_reg_end)\t" 
-                out_str *= "$(sub_reg_data.tnme_test[1])\t$(sub_reg_data.tnme_test[2])\n" 
-                write(io,out_str)
-
-                # Increase counter
-                k += 1
-
+        for ts in test_data
+            # Loop over analysis region
+            @inbounds for k=1:length(ts.coords)
+                # Gather data
+                chrst = minimum(ts.coords[k])
+                chrend = maximum(ts.coords[k])
+                tnme = ts.tests.tnme_test[k][1]
+                pnme = ts.tests.tnme_test[k][2]
+                # Skip if no CGs
+                isnan(tnme) && continue
+                # Write for k-th analysis region
+                write(io,"$(ts.chr)\t$(chrst)\t$(chrend)\t$(tnme)\t$(pnme)\n")
             end
-
         end
     end
     
@@ -409,24 +354,55 @@ function write_nls_reg_tnme_diff_output(pmap_out::Vector{RegStatTestStruct},uniq
 
 end
 """
-    `write_nls_reg_diff_output(PMAP_OUT,UNIQUE_IDS,CONFIG)`
+    `write_output_tcmd(PATH,TEST_DATA)`
 
-    Function that writes output of Tmml & Tnme analysis region differential analysis.
+    Function that writes differential analysis output for statistic Tcmd to output files.
 
     # Examples
     ```julia-repl
-    julia> CpelNano.write_nls_reg_diff_output(pmap_out,uniq_ids,config)
+    julia> CpelNano.write_output_tcmd(path,test_data)
     ```
 """
-function write_nls_reg_diff_output(pmap_out::Vector{RegStatTestStruct},uniq_ids::Vector{String},config::CpelNanoConfig)::Nothing
-
-    # Paths
-    mml_path = "$(config.out_dir)/$(config.out_prefix)_tmml_subreg.bedGraph"
-    nme_path = "$(config.out_dir)/$(config.out_prefix)_tnme_subreg.bedGraph"
+function write_output_tcmd(path::String,test_data::Vector{RegStatTestStruct})::Nothing
 
     # Write
-    write_nls_reg_tmml_diff_output(pmap_out,uniq_ids,mml_path)
-    write_nls_reg_tnme_diff_output(pmap_out,uniq_ids,nme_path)
+    open(path,"a") do io
+        for ts in test_data
+            # Loop over analysis region
+            @inbounds for k=1:length(ts.coords)
+                # Gather data
+                chrst = minimum(ts.coords[k])
+                chrend = maximum(ts.coords[k])
+                tcmd = ts.tests.tcmd_test[k][1]
+                pcmd = ts.tests.tcmd_test[k][2]
+                # Skip if no CGs
+                isnan(tcmd) && continue
+                # Write for k-th analysis region
+                write(io,"$(ts.chr)\t$(chrst)\t$(chrend)\t$(tcmd)\t$(pcmd)\n")
+            end
+        end
+    end
+    
+    # Return nothing
+    return nothing
+
+end
+"""
+    `write_diff_output(REGS_DATA,CONFIG)`
+
+    Function that writes differential analysis output to output files.
+
+    # Examples
+    ```julia-repl
+    julia> CpelNano.write_diff_output(regs_data,config)
+    ```
+"""
+function write_diff_output(test_data::Vector{RegStatTestStruct},config::CpelNanoConfig)::Nothing
+
+    # Write
+    write_output_tmml(config.out_diff_files.tmml_file,test_data)
+    write_output_tnme(config.out_diff_files.tnme_file,test_data)
+    write_output_tcmd(config.out_diff_files.tcmd_file,test_data)
     
     # Return nothing
     return nothing
@@ -545,16 +521,16 @@ function get_dic_nanopolish(reg_data::RegStruct,call_file::String)::Dict{String,
 
 end
 """
-    `read_model_file_chr(FILE,CHR)`
+    `read_mod_file_chr(FILE,CHR)`
 
     Function that reads in the output of `analyze_nano` containing models in chromosome CHR.
 
     # Examples
     ```julia-repl
-    julia> CpelNano.read_model_file_chr(file,chr)
+    julia> CpelNano.read_mod_file_chr(file,chr)
     ```
 """
-function read_model_file_chr(file::String,chr::String)::Dict{String,RegStruct}
+function read_mod_file_chr(file::String,chr::String,fa_rec::FASTA.Record,config::CpelNanoConfig)::Dict{String,RegStruct}
 
     # Go over all lines in file
     out_dic = Dict{String,RegStruct}()
@@ -569,24 +545,33 @@ function read_model_file_chr(file::String,chr::String)::Dict{String,RegStruct}
             reg_chr == chr || continue
 
             # Init struct
-            reg_model = RegStruct()
-            reg_model.chr = reg_chr
+            rs = RegStruct()
+            rs.chr = reg_chr
             
             # Get start or end
-            reg_model.chrst = parse(Int64,line_vec[2])
-            reg_model.chrend = parse(Int64,line_vec[3])
+            rs.chrst = parse(Int64,line_vec[2])
+            rs.chrend = parse(Int64,line_vec[3])
             
             # Get a,b,c
-            reg_model.ϕhat = parse.(Float64,String.(split(line_vec[4],",")))
+            rs.ϕhat = parse.(Float64,String.(split(line_vec[4],",")))
+
+            # Get genomic info
+            get_grp_info!(rs,fa_rec,config.min_grp_dist)
+
+            # Re-scale model
+            rscle_grp_mod!(rs)
             
+            # Statistical summaries
+            get_stat_sums!(rs,config)
+
             # Mark region as processed
-            reg_model.proc = true
+            rs.proc = true
 
             # Set region ID based on chr_st_end
-            reg_id = join([reg_model.chr,reg_model.chrst,reg_model.chrend],"_")
+            reg_id = join([rs.chr,rs.chrst,rs.chrend],"_")
 
             # Add to dictionary 
-            out_dic[reg_id] = reg_model
+            out_dic[reg_id] = rs
             
         end
     end

@@ -103,7 +103,7 @@ println(String(read(theta_path)))
 #####################################################################################################
 
 # Read in model file
-models = CpelNano.read_model_file_chr(theta_path, "Reference")
+models = CpelNano.read_mod_file_chr(theta_path, "Reference")
 CpelNano.comp_gjsd(models["Reference_1_4000"],models["Reference_1_4000"])
 
 # Get all models

@@ -466,7 +466,7 @@ end
 
     # Examples
     ```julia-repl
-    julia> CpelNano.get_nls_reg_info!(reg_int,fa_rec)
+    julia> CpelNano.get_nls_reg_info!(rs,config)
     ```
 """
 function get_nls_reg_info!(rs::RegStruct,config::CpelNanoConfig)::Nothing

@@ -19,6 +19,19 @@ mutable struct OutputFiles
     )
 end
 
+# Output differential analysis files
+mutable struct OutputDiffFiles
+    tmml_file::String                       # File containing Tmml results
+    tnme_file::String                       # File containing Tnme results
+    tcmd_file::String                       # File containing Tcmd results
+    OutputDiffFiles() = new()
+    OutputDiffFiles(out_dir, out_prefix) = new(
+        "$(out_dir)/$(out_prefix)_tmml.txt",
+        "$(out_dir)/$(out_prefix)_tnme.txt",
+        "$(out_dir)/$(out_prefix)_tcmd.txt"
+    )
+end
+
 # CpelNano Configuration
 mutable struct CpelNanoConfig
     min_cov::Float64                    # Minimum average coverage
@@ -40,13 +53,14 @@ mutable struct CpelNanoConfig
     trim::NTuple{4,Int64}               # Trimming of reads
     pe::Bool                            # Paired end (used if BS data)
     out_files::OutputFiles              # Name of output files
+    out_diff_files::OutputDiffFiles     # Name of output files
     # Init methods
     CpelNanoConfig() = new(10.0,10,350,3000,10,20,"./","cpelnano",
         true,false,false,false,false,"nanopolish","",
-        false,(0, 0, 0, 0),false,OutputFiles("./", "cpelnano"))
+        false,(0, 0, 0, 0),false,OutputFiles("./", "cpelnano"),OutputDiffFiles("./", "cpelnano"))
     CpelNanoConfig(min_cov, max_size_subreg, size_est_reg, max_em_init, max_em_iters) = 
         new(min_cov,10,max_size_subreg + 1,size_est_reg,max_em_init,max_em_iters,"","",
-        true,false,false,false,false,"nanopolish","",false,(0, 0, 0, 0),false,OutputFiles("", ""))
+        true,false,false,false,false,"nanopolish","",false,(0, 0, 0, 0),false,OutputFiles("", ""),OutputDiffFiles("", ""))
 end
 
 ##################################################################################################
@@ -189,12 +203,11 @@ perc_gprs_obs(reg::RegStruct)::Float64 = sum([is_grp_obs(i, reg.calls) for i = 1
 
 # Structure for analysis regions used in testing
 mutable struct NlsRegTestStruct
-    proc::Bool                                          # Test done
-    tmml_test::NTuple{2,Float64}                        # Pair (Tmml,Pmml)
-    tnme_test::NTuple{2,Float64}                        # Pair (Tnme,Pnme)
-    tcmd_test::NTuple{2,Float64}                        # Pair (Tcmd,Pcmd)
+    tmml_test::Vector{NTuple{2,Float64}}                # Pairs (Tmml,Pmml)
+    tnme_test::Vector{NTuple{2,Float64}}                # Pairs (Tnme,Pnme)
+    tcmd_test::Vector{NTuple{2,Float64}}                # Pairs (Tcmd,Pcmd)
     # Init Methods
-    NlsRegTestStruct() = new(false, (NaN, NaN), (NaN, NaN), (NaN, NaN))
+    NlsRegTestStruct(num_nls) = new(fill((NaN, NaN), num_nls), fill((NaN, NaN), num_nls), fill((NaN, NaN), num_nls))
 end
 
 # Structure for analysis region used in testing
@@ -202,8 +215,8 @@ mutable struct RegStatTestStruct
     chr::String                                         # Chromosome of analysis region
     chrst::Int64                                        # Start position of region (1-based)
     chrend::Int64                                       # End position of region (1-based)
-    coords::Vector{NTuple{2,Int64}}                     # Coordinates of analysis regions
-    tests::Vector{NlsRegTestStruct}                     # Vector of tests results
+    coords::Vector{UnitRange{Int64}}                    # Coordinates of analysis regions
+    tests::NlsRegTestStruct                             # Tests results
     # Init method 1
     RegStatTestStruct() = new()
     # Init method 2
@@ -211,8 +224,8 @@ mutable struct RegStatTestStruct
         est_rs.chr,
         est_rs.chrst,
         est_rs.chrend,
-        fill((0, 0), est_rs.nls_rgs.num),
-        fill(NlsRegTestStruct(), est_rs.nls_rgs.num)
+        est_rs.nls_rgs.chr_int,
+        NlsRegTestStruct(est_rs.nls_rgs.num)
     )
         
 end

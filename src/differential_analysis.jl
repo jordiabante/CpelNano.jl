@@ -16,7 +16,7 @@ function get_all_models_chr(mod_files::Vector{String}, chr::String)::Vector{Dict
     # Get all data from chromosome
     mods = Vector{Dict{String,RegStruct}}()
     @inbounds for f in mod_files
-        push!(mods, read_model_file_chr(f, chr))
+        push!(mods, read_mod_file_chr(f, chr))
     end
 
     # Return models
