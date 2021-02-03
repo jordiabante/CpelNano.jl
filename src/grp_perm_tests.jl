@@ -245,7 +245,7 @@ function unmat_est_reg_test(ms_g1::Vector{RegStruct}, ms_g2::Vector{RegStruct}):
     # Compute number of possible randomizations
     L = binomial(length(μs_g1) + length(μs_g2), length(μs_g1))
 
-    # If enough data compute p-values
+    # If enough data compute p-values (p<0.05)
     if L>20
         
         # Check if exact test
