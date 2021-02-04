@@ -35,7 +35,6 @@ dataDir = "$(pkg_dir)/examples/full_example/"
 nano = "$(dataDir)/nanopolish/full_example_noise2.0_methylation_calls.sorted.tsv"
 fasta = "$(dataDir)/reference/hg38_chr17_43023997_43145780.fa"
 outdir = "$(dataDir)/cpelnano/"
-outdir = "/Users/jordiabante/Desktop/"
 
 # IO
 config = CpelNano.CpelNanoConfig(); 

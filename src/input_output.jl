@@ -169,8 +169,11 @@ function write_output_mml(path::String,regs_data::Vector{RegStruct})::Nothing
                 reg_st = minimum(rs.nls_rgs.chr_int[k])
                 reg_end = maximum(rs.nls_rgs.chr_int[k])
 
+                # Round mml to 4 decimals
+                mml = round(rs.mml[k],digits=4)
+
                 # Write μk(X) for k-th analysis region
-                write(io,"$(rs.chr)\t$(reg_st)\t$(reg_end)\t$(rs.mml[k])\n")
+                write(io,"$(rs.chr)\t$(reg_st)\t$(reg_end)\t$(mml)\n")
 
             end
 
@@ -210,8 +213,11 @@ function write_output_nme(path::String,regs_data::Vector{RegStruct})::Nothing
                 reg_st = minimum(rs.nls_rgs.chr_int[k])
                 reg_end = maximum(rs.nls_rgs.chr_int[k])
 
-                # Write μk(X) for k-th analysis region
-                write(io,"$(rs.chr)\t$(reg_st)\t$(reg_end)\t$(rs.nme[k])\n")
+                # Round nme to 4 decimals
+                nme = round(rs.nme[k],digits=4)
+
+                # Write hk(X) for k-th analysis region
+                write(io,"$(rs.chr)\t$(reg_st)\t$(reg_end)\t$(nme)\n")
 
             end
 
@@ -309,6 +315,8 @@ function write_output_tmml(path::String,test_data::Vector{RegStatTestStruct})::N
                 pmml = ts.tests.tmml_test[k][2]
                 # Skip if no CGs
                 isnan(tmml) && continue
+                # Round Tmml to 4 decimals
+                tmml = round(tmml,digits=4)
                 # Write for k-th analysis region
                 write(io,"$(ts.chr)\t$(chrst)\t$(chrend)\t$(tmml)\t$(pmml)\n")
             end
@@ -343,6 +351,8 @@ function write_output_tnme(path::String,test_data::Vector{RegStatTestStruct})::N
                 pnme = ts.tests.tnme_test[k][2]
                 # Skip if no CGs
                 isnan(tnme) && continue
+                # Round Tnme to 4 decimals
+                tnme = round(tnme,digits=4)
                 # Write for k-th analysis region
                 write(io,"$(ts.chr)\t$(chrst)\t$(chrend)\t$(tnme)\t$(pnme)\n")
             end
@@ -377,6 +387,8 @@ function write_output_tcmd(path::String,test_data::Vector{RegStatTestStruct})::N
                 pcmd = ts.tests.tcmd_test[k][2]
                 # Skip if no CGs
                 isnan(tcmd) && continue
+                # Round Tcmd to 4 decimals
+                tcmd = round(max(0.0,tcmd),digits=4)
                 # Write for k-th analysis region
                 write(io,"$(ts.chr)\t$(chrst)\t$(chrend)\t$(tcmd)\t$(pcmd)\n")
             end

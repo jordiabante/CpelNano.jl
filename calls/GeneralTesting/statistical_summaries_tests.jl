@@ -194,8 +194,8 @@ round.([rs1.mml rs2.mml], digits=4)
 
 # Compute NME
 CpelNano.comp_nme!(rs1); CpelNano.comp_nme!(rs2);
-round.(max.([rs1.nme rs2.nme], 0.0), digits=4)
+round.([rs1.nme rs2.nme], digits=4)
 
 # Compute CMD
-cmd = CpelNano.comp_cmd(rs1, rs2)
-round.(max.(0.0, cmd), digits=4)
+cmd = CpelNano.comp_cmd(rs1, rs1)
+round.(cmd, digits=4)
