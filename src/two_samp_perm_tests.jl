@@ -159,9 +159,6 @@ function pmap_diff_two_samp_comp(mod_s1::RegStruct, mod_s2::RegStruct, nano_s1::
         tmml_perms = [x[1] for x in pmap_out]
         tnme_perms = [x[2] for x in pmap_out]
         tcmd_perms = [x[3] for x in pmap_out]
-        # config.verbose && print_log("tmml_perms=$(tmml_perms)")
-        # config.verbose && print_log("tnme_perms=$(tnme_perms)")
-        # config.verbose && print_log("tcmd_perms=$(tcmd_perms)")
 
         ## P-value computation
 
@@ -180,6 +177,9 @@ function pmap_diff_two_samp_comp(mod_s1::RegStruct, mod_s2::RegStruct, nano_s1::
             tmml_perms_k = tmml_perms_k[.!isnan.(tmml_perms_k)]
             tnme_perms_k = tnme_perms_k[.!isnan.(tnme_perms_k)]
             tcmd_perms_k = tcmd_perms_k[.!isnan.(tcmd_perms_k)]
+
+            # Check enough null stats after filtering NaNs
+            length(tmml_perms_k) > 20 || continue
 
             # Get number of permutation stats equal or above observed
             tmml_pval_k = sum(abs.(tmml_perms_k) .>= abs(tmml_obs[k]))
@@ -201,8 +201,6 @@ function pmap_diff_two_samp_comp(mod_s1::RegStruct, mod_s2::RegStruct, nano_s1::
         test_struct.tests.tnme_test[k] = (tnme_obs[k], tnme_pvals[k])
         test_struct.tests.tcmd_test[k] = (tcmd_obs[k], tcmd_pvals[k])
     end
-    # config.verbose && print_log("$(test_struct.tests)")
-    # config.verbose && readline()
 
     # Return test struct
     return test_struct

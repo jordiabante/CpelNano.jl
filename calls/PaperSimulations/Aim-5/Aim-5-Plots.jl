@@ -1,5 +1,5 @@
 #################################################################################################
-# AIM 4: group comparison performance
+# AIM 5: two-sample comparison performance
 #################################################################################################
 ## Deps
 using Distributed
@@ -8,21 +8,23 @@ using Distributed
 @everywhere using CpelNano
 using StatsPlots
 using Distributions
+using Combinatorics
 
 ## Constants
 
 # IO
-const data_dir = "/Users/jordiabante/OneDrive - Johns Hopkins/CpelNano/Data/Simulations/Aim-4/" # <=
+const data_dir = "/Users/jordiabante/OneDrive - Johns Hopkins/CpelNano/Data/Simulations/Aim-5/" # <=
 const blind_friend_col = ["#999999","#E69F00","#56B4E9","#009E73","#F0E442","#0072B2","#D55E00","#CC79A7"]
 
 # Set up
 @everywhere const M = 5
 @everywhere const POBS = 1.0
 @everywhere const LEVEL_STD_M = 2.0
-@everywhere const LEVEL_STD_U = 2.0
+@everywhere const LEVEL_STD_u = 2.0
 @everywhere const LEVEL_MEAN_M = 84.0
-@everywhere const LEVEL_MEAN_U = 80.0
-@everywhere const EF_PERC_RNG = 0.05:0.05:0.25
+@everywhere const LEVEL_MEAN_u = 80.0
+@everywhere const LMAX_TWO_SAMP_AIM_5 = 100
+@everywhere const EFF_PERC_RNG = 0.05:0.05:0.25
 
 ## Default attributes
 default(titlefont=(14, "arial"),guidefont=(16, "arial"),tickfont=(12, "arial"))
@@ -52,8 +54,8 @@ function get_ϕs_eff_rng(eff_type, config)
     eff_size_arr = Vector{Float64}()
     ϕ1_arr = Vector{Vector{Float64}}()
     ϕ2_arr = Vector{Vector{Float64}}()
-    next_eff_size = minimum(EF_PERC_RNG)
-    eff_size_check = fill(false, length(EF_PERC_RNG))
+    next_eff_size = minimum(EFF_PERC_RNG)
+    eff_size_check = fill(false, length(EFF_PERC_RNG))
     while ! all(eff_size_check)
         
         # Scale vector 
@@ -92,10 +94,10 @@ function get_ϕs_eff_rng(eff_type, config)
             push!(eff_size_arr, eff_size)
 
             # Break
-            i == length(EF_PERC_RNG) && break
+            i == length(EFF_PERC_RNG) && break
             
             # Next effect size
-            next_eff_size = EF_PERC_RNG[i + 1]
+            next_eff_size = EFF_PERC_RNG[i + 1]
     
             # Increase counter
             i += 1
@@ -148,42 +150,29 @@ end
     return nothing
     
 end
-@everywhere function gen_grp_data(n_grp_reps::Int64, ϕ1::Vector{Float64}, ϕ2::Vector{Float64}, config::CpelNano.CpelNanoConfig)
+@everywhere function gen_grp_data(ϕ1::Vector{Float64}, ϕ2::Vector{Float64}, config::CpelNano.CpelNanoConfig)
 
     ## Set baseline struct
     rs = create_baseline_struct(config)
     αs1, βs1 = CpelNano.get_αβ_from_ϕ(ϕ1, rs)
     αs2, βs2 = CpelNano.get_αβ_from_ϕ(ϕ2, rs)
     
-    ## Generate group data
-    ms_g1 = Vector{CpelNano.RegStruct}()
-    ms_g2 = Vector{CpelNano.RegStruct}()
-    for rep = 1:n_grp_reps
+    ## Group 1
+    
+    # Generate calls
+    ms_g1 = CpelNano.cpel_samp_ont(M, αs1, βs1, POBS, LEVEL_MEAN_M, LEVEL_STD_M, LEVEL_MEAN_u, LEVEL_STD_u)
+    
+    # Fill fields
+    cp_rs_flds!(rs, ms_g1)
 
-        ## Group 1
-        
-        # Generate calls
-        rs_aux = CpelNano.cpel_samp_ont(M, αs1, βs1, POBS, LEVEL_MEAN_M, LEVEL_STD_M, LEVEL_MEAN_U, LEVEL_STD_U)
-        
-        # Fill fields
-        cp_rs_flds!(rs, rs_aux)
-
-        # Push struct
-        push!(ms_g1, rs_aux)
-
-        ## Group 2
-        
-        # Generate data
-        rs_aux = CpelNano.cpel_samp_ont(M, αs2, βs2, POBS, LEVEL_MEAN_M, LEVEL_STD_M, LEVEL_MEAN_U, LEVEL_STD_U)
-        
-        # Fill fields
-        cp_rs_flds!(rs, rs_aux)
-        
-        # Push struct
-        push!(ms_g2, rs_aux)
-
-    end
-
+    ## Group 2
+    
+    # Generate data
+    ms_g2 = CpelNano.cpel_samp_ont(M, αs2, βs2, POBS, LEVEL_MEAN_M, LEVEL_STD_M, LEVEL_MEAN_u, LEVEL_STD_u)
+    
+    # Fill fields
+    cp_rs_flds!(rs, ms_g2)
+    
     # Returns group data
     return ms_g1, ms_g2
 
@@ -245,7 +234,148 @@ function get_pvals(test_out::CpelNano.RegStatTestStruct, eff_type::String)
     return pvals
     
 end
-@everywhere function pmap_run_sim(n_grp_reps::Int64, ϕ1::Vector{Float64}, ϕ2::Vector{Float64}, config::CpelNano.CpelNanoConfig)
+@everywhere function pmap_two_samp_null_stats(rs_ref::CpelNano.RegStruct, calls_s1::Vector{Vector{CpelNano.MethCallCpgGrp}}, calls_s2::Vector{Vector{CpelNano.MethCallCpgGrp}}, perm_ids::Vector{Int64}, config::CpelNano.CpelNanoConfig)::NTuple{3,Vector{Float64}}
+
+    # Init output
+    tmml = fill(NaN, rs_ref.nls_rgs.num)
+    tnme = fill(NaN, rs_ref.nls_rgs.num)
+    tcmd = fill(NaN, rs_ref.nls_rgs.num)
+
+    # Create two aux structs
+    aux_rs_s1 = CpelNano.RegStruct()
+    aux_rs_s2 = CpelNano.RegStruct()
+    cp_rs_flds!(rs_ref, aux_rs_s1)
+    cp_rs_flds!(rs_ref, aux_rs_s2)
+    aux_rs_s1.m = length(calls_s1)
+    aux_rs_s2.m = length(calls_s2)
+
+    # Assign calls
+    aux_calls = vcat(calls_s1, calls_s2)
+    aux_rs_s1.calls = aux_calls[perm_ids]
+    deleteat!(aux_calls, perm_ids)
+    aux_rs_s2.calls = aux_calls
+
+    # Do estimation
+    proc_rep_rs!(aux_rs_s1, config)
+    proc_rep_rs!(aux_rs_s2, config)
+    (aux_rs_s1.proc && aux_rs_s2.proc) || return tmml, tnme, tcmd
+        
+    # Compute stats
+    tmml = abs.(aux_rs_s1.mml - aux_rs_s2.mml)
+    tnme = abs.(aux_rs_s1.nme - aux_rs_s2.nme)
+    tcmd = CpelNano.comp_cmd(aux_rs_s1, aux_rs_s2)
+
+    # Return tuple
+    return tmml, tnme, tcmd
+
+end
+function pmap_diff_two_samp_comp(mod_s1::CpelNano.RegStruct, mod_s2::CpelNano.RegStruct, config::CpelNano.CpelNanoConfig)::CpelNano.RegStatTestStruct
+
+    CpelNano.print_log("Processing estimation region")
+    
+    # Init output struct
+    test_struct = CpelNano.RegStatTestStruct(mod_s1)
+    
+    # Observed statistics
+    tmml_obs = abs.(mod_s1.mml - mod_s2.mml)
+    tnme_obs = abs.(mod_s1.nme - mod_s2.nme)
+    tcmd_obs = CpelNano.comp_cmd(mod_s1, mod_s2)
+
+    # Init p-values
+    tmml_pvals = fill(NaN, length(tmml_obs))
+    tnme_pvals = fill(NaN, length(tnme_obs))
+    tcmd_pvals = fill(NaN, length(tcmd_obs))
+
+    # Compute number of possible randomizations
+    L = binomial(length(mod_s1.calls) + length(mod_s2.calls), length(mod_s1.calls))
+
+    # If enough permutations
+    if L > 20
+        
+        #  Check if exact test
+        exact = L < LMAX_TWO_SAMP_AIM_5
+    
+        # Store calls in aux vars
+        calls_s1 = deepcopy(mod_s1.calls)
+        calls_s2 = deepcopy(mod_s2.calls)
+
+        # Create iteratable object with all combinations
+        comb_iter = combinations(1:(length(calls_s1) + length(calls_s2)), length(calls_s1))
+
+        # Get sample label combinations to use
+        comb_iter_used = []
+        if exact
+            # Use all sample assignments
+            comb_iter_used = comb_iter
+        else
+            # Use Lmax group assignments
+            ind_subset = rand(1:L, LMAX_TWO_SAMP_AIM_5)
+            @inbounds for (ind, comb) in enumerate(comb_iter)
+                (ind in ind_subset) && push!(comb_iter_used, comb)
+            end
+        end
+
+        ## Null statistics
+
+        # Compute null statistics
+        pmap_out = pmap(perm -> pmap_two_samp_null_stats(mod_s1, calls_s1, calls_s2, perm, config), comb_iter_used)
+
+        # Distribute statistics
+        tmml_perms = [x[1] for x in pmap_out]
+        tnme_perms = [x[2] for x in pmap_out]
+        tcmd_perms = [x[3] for x in pmap_out]
+        CpelNano.print_log("tmml_perms=$(tmml_perms)")
+        CpelNano.print_log("tnme_perms=$(tnme_perms)")
+        CpelNano.print_log("tcmd_perms=$(tcmd_perms)")
+
+        ## P-value computation
+
+        # Loop over analysis regions
+        @inbounds for k in 1:length(tmml_obs)
+
+            # Check if data
+            isnan(tmml_obs[k]) && continue
+
+            # Get permutation stats from k-th analysis region
+            tmml_perms_k = [perm[k] for perm in tmml_perms]
+            tnme_perms_k = [perm[k] for perm in tnme_perms]
+            tcmd_perms_k = [perm[k] for perm in tcmd_perms]
+
+            # Clean NaNs in null stats
+            tmml_perms_k = tmml_perms_k[.!isnan.(tmml_perms_k)]
+            tnme_perms_k = tnme_perms_k[.!isnan.(tnme_perms_k)]
+            tcmd_perms_k = tcmd_perms_k[.!isnan.(tcmd_perms_k)]
+
+            # Check enough null stats after filtering NaNs
+            # length(tmml_perms_k) > 20 || continue
+
+            # Get number of permutation stats equal or above observed
+            tmml_pval_k = sum(abs.(tmml_perms_k) .>= abs(tmml_obs[k]))
+            tnme_pval_k = sum(abs.(tnme_perms_k) .>= abs(tnme_obs[k]))
+            tcmd_pval_k = sum(tcmd_perms_k .>= tcmd_obs[k])
+
+            # Compute p-values
+            tmml_pvals[k] = exact ? tmml_pval_k / length(tmml_perms_k) : (1.0 + tmml_pval_k) / (1.0 + length(tmml_perms_k))
+            tnme_pvals[k] = exact ? tnme_pval_k / length(tnme_perms_k) : (1.0 + tnme_pval_k) / (1.0 + length(tnme_perms_k))
+            tcmd_pvals[k] = exact ? tcmd_pval_k / length(tcmd_perms_k) : (1.0 + tcmd_pval_k) / (1.0 + length(tcmd_perms_k))
+
+        end
+
+    end
+
+    # Fill return object
+    @inbounds for k in 1:length(tmml_obs)
+        test_struct.tests.tmml_test[k] = (tmml_obs[k], tmml_pvals[k])
+        test_struct.tests.tnme_test[k] = (tnme_obs[k], tnme_pvals[k])
+        test_struct.tests.tcmd_test[k] = (tcmd_obs[k], tcmd_pvals[k])
+    end
+    CpelNano.print_log("test_struct.tests=$(test_struct.tests)")
+
+    # Return test struct
+    return test_struct
+
+end
+@everywhere function map_run_sim(ϕ1::Vector{Float64}, ϕ2::Vector{Float64}, config::CpelNano.CpelNanoConfig)
 
     # Choose whether effect or not (50% chance)
     eff_bool_j = rand() > 0.5
@@ -253,45 +383,36 @@ end
     # Generate data
     if eff_bool_j
         # Introduce effect
-        ms_g1, ms_g2 = gen_grp_data(n_grp_reps, ϕ1, ϕ2, config)
+        m_g1, m_g2 = gen_grp_data(ϕ1, ϕ2, config)
     else
         # Do not introduce effect
-        ms_g1, ms_g2 = gen_grp_data(n_grp_reps, ϕ1, ϕ1, config)
+        m_g1, m_g2 = gen_grp_data(ϕ1, ϕ1, config)
     end
 
     # Estimate parameters
-    for rep = 1:n_grp_reps
-        proc_rep_rs!(ms_g1[rep], config)
-        proc_rep_rs!(ms_g2[rep], config)
-    end
+    proc_rep_rs!(m_g1, config)
+    proc_rep_rs!(m_g2, config)
 
     # Find valid reps
-    n_val = 0
-    for rep = 1:n_grp_reps
-        rs_1 = ms_g1[rep]
-        rs_2 = ms_g2[rep]
-        n_val += (rs_1.proc && rs_2.proc) ? 1 : 0
-    end
-    n_val == n_grp_reps || return nothing
+    (m_g1.proc && m_g2.proc) || return nothing
 
     # Perform test
-    test_out = config.matched ? CpelNano.mat_est_reg_test(ms_g1, ms_g2) : CpelNano.unmat_est_reg_test(ms_g1, ms_g2)
+    test_out = pmap_diff_two_samp_comp(m_g1, m_g2, config)
     
     # Return test out and effect bool
     return eff_bool_j, test_out
 
 end
-function run_sim(n_sim_reps::Int64, n_grp_reps::Int64, eff_type::String, matched::Bool)
+function run_sim(n_sim_reps::Int64, eff_type::String)
 
     # Init
     pval_thrs_rng = 0.0:0.001:1.0
-    tpr = Array{Float64}(undef, length(EF_PERC_RNG), length(pval_thrs_rng))
-    fpr = Array{Float64}(undef, length(EF_PERC_RNG), length(pval_thrs_rng))
+    tpr = Array{Float64}(undef, length(EFF_PERC_RNG), length(pval_thrs_rng))
+    fpr = Array{Float64}(undef, length(EFF_PERC_RNG), length(pval_thrs_rng))
 
     # CpelNano config
     config = CpelNano.CpelNanoConfig()
     config.max_size_subreg = 350
-    config.matched = matched
     config.max_em_iters = 25
     config.max_em_init = 5
     config.verbose = false
@@ -308,12 +429,12 @@ function run_sim(n_sim_reps::Int64, n_grp_reps::Int64, eff_type::String, matched
         CpelNano.print_log("Effect percentage $(eff_size_arr[i])")
         
         # Generate data for multiple reps
-        pmap_out = pmap(i -> pmap_run_sim(n_grp_reps, ϕ1, ϕ2, config), 1:n_sim_reps)
+        map_out = map(i -> map_run_sim(ϕ1, ϕ2, config), 1:n_sim_reps)
 
         # Get pvals
         pvals_neg = []
         pvals_pos = []
-        for x in pmap_out
+        for x in map_out
             isnothing(x) && continue
             if x[1]
                 push!(pvals_pos, get_pvals(x[2], eff_type))
@@ -325,6 +446,8 @@ function run_sim(n_sim_reps::Int64, n_grp_reps::Int64, eff_type::String, matched
         # Flatten vectors
         pvals_pos = vcat(pvals_pos...)
         pvals_neg = vcat(pvals_neg...)
+        CpelNano.print_log("pvals_pos=$(pvals_pos)")
+        CpelNano.print_log("pvals_neg=$(pvals_neg)")
 
         # Remove NaN
         is_nan = isnan.(pvals_pos)
@@ -380,37 +503,12 @@ end
 
 # Arguments
 eff_type = ARGS[1]
-matched = parse(Bool, ARGS[2])
-n_sim_reps = parse(Int64, ARGS[3])
-CpelNano.print_log("Running ROC simulations for $(matched) $(eff_type) w/ $(n_sim_reps) reps")
+n_sim_reps = parse(Int64, ARGS[2])
+CpelNano.print_log("Running ROC simulations for two-sample test $(eff_type) w/ $(n_sim_reps) reps")
 
 # Run
-if matched
+eff_size_arr, tpr, fpr = run_sim(n_sim_reps, eff_type)
 
-    ### Matched
-    
-    # Vars
-    n_grp_reps = 6
-
-    # Simulations
-    eff_size_arr, tpr, fpr = run_sim(n_sim_reps, n_grp_reps, eff_type, matched)
-
-    # Plot
-    plt = plt_roc(eff_size_arr, tpr, fpr, "ROC - $(eff_type) - matched ")
-    savefig(plt, "$(data_dir)/ROC-Matched-$(eff_type).pdf")
-
-else
-
-    ### Unmatched
-
-    # Vars
-    n_grp_reps = 5
-
-    # Simulations
-    eff_size_arr, tpr, fpr = run_sim(n_sim_reps, n_grp_reps, eff_type, matched)
-
-    # Plot
-    plt = plt_roc(eff_size_arr, tpr, fpr, "ROC - $(eff_type) - unmatched ")
-    savefig(plt, "$(data_dir)/ROC-Unmatched-$(eff_type).pdf")
-
-end
+# Plot
+plt = plt_roc(eff_size_arr, tpr, fpr, "ROC - $(eff_type) - two-sample test ")
+savefig(plt, "$(data_dir)/ROC-Two-Sample-Test-$(eff_type).pdf")
