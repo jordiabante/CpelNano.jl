@@ -7,7 +7,7 @@ using Distributions
 using DelimitedFiles
 
 ## Constants
-const data_dir = "/Users/jordiabante/OneDrive - Johns Hopkins/CpelNano/Data/Real-Data/GM12878/"
+const gt_dir = "/Users/jordiabante/OneDrive - Johns Hopkins/CpelNano/Data/Simulations/ground_truth/"
 const aim_dir = "/Users/jordiabante/OneDrive - Johns Hopkins/CpelNano/Data/Simulations/Aim-3/"
 
 ## Default attributes
@@ -173,7 +173,7 @@ function plt_exp_scatter()
         markeralpha=0.1,xlim=(0.0, 1.0),ylim=(0.0, 1.0),label="",title="E[XX]");
     plot(p_ex, p_exx, layout=(2, 1), size=(500, 600))
     savefig("$(aim_dir)/Scatter-Exp-Aim-3.pdf")
-    savefig("$(aim_dir)/Scatter-Exp-Aim-2.png")
+    savefig("$(aim_dir)/Scatter-Exp-Aim-3.png")
 
     # Return nothing
     return nothing
