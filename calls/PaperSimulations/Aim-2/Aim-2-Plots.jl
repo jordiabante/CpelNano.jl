@@ -448,7 +448,7 @@ savefig("$(aim_dir)/Boxplots-EXX-Aim-2.pdf")
 
 ## Scatter plots for specific noise and cov
 
-# # Scatter parameters
+# Scatter parameters
 println("Generating: Scatter parameters")
 plt_params_scatter(10.0,2.0)
 plt_params_scatter(20.0,2.0)

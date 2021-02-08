@@ -197,5 +197,5 @@ CpelNano.comp_nme!(rs1); CpelNano.comp_nme!(rs2);
 round.([rs1.nme rs2.nme], digits=4)
 
 # Compute CMD
-cmd = CpelNano.comp_cmd(rs1, rs1)
+cmd = CpelNano.comp_cmd(rs1, rs2)
 round.(cmd, digits=4)
