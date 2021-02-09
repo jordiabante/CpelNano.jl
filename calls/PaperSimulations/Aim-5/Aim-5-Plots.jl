@@ -324,9 +324,6 @@ function pmap_diff_two_samp_comp(mod_s1::CpelNano.RegStruct, mod_s2::CpelNano.Re
         tmml_perms = [x[1] for x in pmap_out]
         tnme_perms = [x[2] for x in pmap_out]
         tcmd_perms = [x[3] for x in pmap_out]
-        CpelNano.print_log("tmml_perms=$(tmml_perms)")
-        CpelNano.print_log("tnme_perms=$(tnme_perms)")
-        CpelNano.print_log("tcmd_perms=$(tcmd_perms)")
 
         ## P-value computation
 
@@ -369,7 +366,6 @@ function pmap_diff_two_samp_comp(mod_s1::CpelNano.RegStruct, mod_s2::CpelNano.Re
         test_struct.tests.tnme_test[k] = (tnme_obs[k], tnme_pvals[k])
         test_struct.tests.tcmd_test[k] = (tcmd_obs[k], tcmd_pvals[k])
     end
-    CpelNano.print_log("test_struct.tests=$(test_struct.tests)")
 
     # Return test struct
     return test_struct
@@ -446,8 +442,6 @@ function run_sim(n_sim_reps::Int64, eff_type::String)
         # Flatten vectors
         pvals_pos = vcat(pvals_pos...)
         pvals_neg = vcat(pvals_neg...)
-        CpelNano.print_log("pvals_pos=$(pvals_pos)")
-        CpelNano.print_log("pvals_neg=$(pvals_neg)")
 
         # Remove NaN
         is_nan = isnan.(pvals_pos)
