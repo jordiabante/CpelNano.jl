@@ -1,12 +1,10 @@
 ##################################################################################################
-## Unmatched test Tcmd analysis region
+## Unmatched test
 ##################################################################################################
 """
     `comp_unmat_stat_cmd(mods_g1,mods_g2)`
-
     Function that computes a test statistic Tcmd for each analysis region in unmatched case 
     between groups.
-
     # Examples
     ```julia-repl
     julia> CpelNano.comp_unmat_stat_cmd(mods_g1,mods_g2)
@@ -27,108 +25,86 @@ function comp_unmat_stat_cmd(mods_g1::Vector{RegStruct}, mods_g2::Vector{RegStru
 
 end
 """
-    `comp_unmat_stat_cmd_fst(mods_g1,mods_g2)`
+    `get_unmat_cmd_tbl(mods_g1,mods_g2)`
 
-    Function that computes a test statistic Tcmd for each analysis region in unmatched case 
-    between groups in fast mode.
+    Function that computes CMD between all possible pairs.
 
     # Examples
     ```julia-repl
-    julia> CpelNano.comp_unmat_stat_cmd_fst(mods_g1,mods_g2)
+    julia> CpelNano.get_unmat_cmd_tbl(mods_g1,mods_g2)
     ```
 """
-function comp_unmat_stat_cmd_fst(mods_g1::Vector{RegStruct}, mods_g2::Vector{RegStruct})::Vector{Float64}
+function get_unmat_cmd_tbl(mods_g1::Vector{RegStruct}, mods_g2::Vector{RegStruct})::Dict{NTuple{2,Int64},Vector{Float64}}
     
-    # Choose pairs
-    n_pairs = min(length(mods_g1), length(mods_g2))
-    reps_g1 = sample(1:length(mods_g1), n_pairs; replace=false)
-    reps_g2 = sample(1:length(mods_g2), n_pairs; replace=false)
+    # Number of analysis regions
+    rs = mods_g1[1]
+    num_nls_reg = rs.nls_rgs.num
 
-    # Compute statistic
-    cmds = []
-    @inbounds for pair = 1:n_pairs
-        push!(cmds, comp_cmd(mods_g1[reps_g1[pair]], mods_g2[reps_g2[pair]]))
+    # Number of replicates
+    n_g1 = length(mods_g1)
+    n_g2 = length(mods_g2)
+    n_tot = n_g1 + n_g2
+
+    # Init matrix 
+    cmd_tbl = Dict{NTuple{2,Int64},Vector{Float64}}()
+
+    # Compute statistic within group 1
+    @inbounds for s1 = 1:n_g1
+        @inbounds for s2 = (s1+1):n_g1
+            cmd_tbl[(s1,s2)] = comp_cmd(mods_g1[s1], mods_g1[s2])
+        end
     end
 
-    # Return vector of average CMD between groups
-    return sum(cmds) / n_pairs
+    # Compute statistic within group 2
+    @inbounds for s1 = 1:n_g2
+        @inbounds for s2 = (s1+1):n_g2
+            cmd_tbl[(n_g1+s1,n_g1+s2)] = comp_cmd(mods_g2[s1], mods_g2[s2])
+        end
+    end
+
+    # Compute statistic between groups
+    @inbounds for s1 = 1:n_g1
+        @inbounds for s2 = 1:n_g2
+            cmd_tbl[(s1,n_g1+s2)] = comp_cmd(mods_g1[s1], mods_g2[s2])
+        end
+    end
+
+    # Return matrix of CMD
+    return cmd_tbl
 
 end
 """
-    `comp_unmat_perm_stat_cmd(mods_g1,mods_g2,perm_ids)`
+    `comp_unmat_perm_stat_cmd(N_G1,N_G2,NUM_NLS_RGS,CMD_TBL,PERM_IDS)`
 
     Function that produces a permutation statistic for Tcmd in unmatched case.
 
     # Examples
     ```julia-repl
-    julia> CpelNano.comp_unmat_perm_stat_cmd(mods_g1,mods_g2,perm_ids)
+    julia> CpelNano.comp_unmat_perm_stat_cmd(n_g1,n_g2,num_nls_rgs,cmd_tbl,ind_g1)
     ```
 """
-function comp_unmat_perm_stat_cmd(mods_g1::Vector{RegStruct}, mods_g2::Vector{RegStruct}, perm_ids::Vector{Int64})::Vector{Float64}
+function comp_unmat_perm_stat_cmd(n_g1::Int64,n_g2::Int64,num_nls_rgs::Int64,cmd_tbl::Dict{Tuple{Int64,Int64},Array{Float64,1}},ind_g1::Vector{Int64})::Vector{Float64}
 
-    # Get vectors for each group
-    mods_g2_p = vcat(mods_g1, mods_g2)
-    mods_g1_p = mods_g2_p[perm_ids]
-    deleteat!(mods_g2_p, perm_ids)
+    # Replicates
+    ind_g2 = collect(1:(n_g1 + n_g2))
+    ind_g2 = deleteat!(ind_g2,ind_g1)
 
-    # Return stat for permutation
-    return comp_unmat_stat_cmd_fst(mods_g1_p, mods_g2_p)
-    
-end
-"""
-    `unmat_reg_test_tcmd(mods_g1,mods_g2)`
-
-    Function that performs hypothesis testing in unmatched group comparison for Tcmd.
-
-    # Examples
-    ```julia-repl
-    julia> CpelNano.unmat_reg_test_tcmd(mods_g1,mods_g2)
-    ```
-"""
-function unmat_reg_test_tcmd(mods_g1::Vector{RegStruct}, mods_g2::Vector{RegStruct})::NTuple{2,Vector{Float64}}
-
-    # Compute observed stats
-    tcmd_obs = CpelNano.comp_unmat_stat_cmd(mods_g1, mods_g2)
-        # print_log("Tcmd=$(tcmd_obs)")
-
-    # Compute number of possible randomizations
-    L = binomial(length(mods_g1) + length(mods_g2), length(mods_g1))
-    exact = L < LMAX
-
-    # Create iteratable object with all combinations
-    comb_iter = combinations(1:(length(mods_g1) + length(mods_g2)), length(mods_g1))
-
-    # Get group label combinations to use
-    comb_iter_used = []
-    if exact
-        # Use all group assignments
-        comb_iter_used = comb_iter
-    else
-        # Use Lmax group assignments
-        ind_subset = rand(1:L, LMAX)
-        @inbounds for (ind, comb) in enumerate(comb_iter)
-            (ind in ind_subset) && push!(comb_iter_used, comb)
+    # Get statistic
+    cmd = fill(0.0,num_nls_rgs)
+    @inbounds for i in ind_g1
+        @inbounds for j in ind_g2
+            if haskey(cmd_tbl,(i,j))
+                cmd .+= cmd_tbl[(i,j)]
+            else
+                cmd .+= cmd_tbl[(j,i)]
+            end
         end
     end
 
-    # Use method for random permutation
-    tcmd_perms = map(x -> CpelNano.comp_unmat_perm_stat_cmd(mods_g1, mods_g2, x), comb_iter_used)
-
-    # Compute p-values two-sided test
-    tcmd_pvals = fill(NaN, length(tcmd_obs))
-    @inbounds for k in 1:length(tcmd_pvals)
-        perms_k = [perm[k] for perm in tcmd_perms]
-        pval_k = sum(perms_k .>= tcmd_obs[k])
-        tcmd_pvals[k] = exact ? pval_k / length(perms_k) : (1.0 + pval_k) / (1.0 + length(perms_k))
-    end
-    
-    # Return stat-pval pairs
-    return (tcmd_obs, tcmd_pvals)
+    # Return stat for permutation
+    return cmd / (n_g1 * n_g2)
     
 end
-##################################################################################################
-## Unmatched test Tmml & Tnme
-##################################################################################################
 """
     `comp_unmat_stat_mml(μs_g1,μs_g2)`
 
@@ -243,7 +219,9 @@ function unmat_est_reg_test(ms_g1::Vector{RegStruct}, ms_g2::Vector{RegStruct}):
     tcmd_pvals = fill(NaN, length(tcmd_obs))
     
     # Compute number of possible randomizations
-    L = binomial(length(μs_g1) + length(μs_g2), length(μs_g1))
+    n_g1 = length(μs_g1)
+    n_g2 = length(μs_g2)
+    L = binomial(n_g1 + n_g2, n_g1)
 
     # If enough data compute p-values (p<0.05)
     if L>20
@@ -252,7 +230,7 @@ function unmat_est_reg_test(ms_g1::Vector{RegStruct}, ms_g2::Vector{RegStruct}):
         exact = L < LMAX
 
         # Create iteratable object with all combinations
-        comb_iter = combinations(1:(length(μs_g1) + length(μs_g2)), length(μs_g1))
+        comb_iter = combinations(1:(n_g1+n_g2), n_g1)
 
         # Get group label combinations to use
         comb_iter_used = []
@@ -267,10 +245,13 @@ function unmat_est_reg_test(ms_g1::Vector{RegStruct}, ms_g2::Vector{RegStruct}):
             end
         end
 
+        # Compute all CMD pairs
+        cmd_tbl = get_unmat_cmd_tbl(ms_g1,ms_g2)
+
         # Use method for random permutation
         tmml_perms = map(x -> comp_unmat_perm_stat_mml(μs_g1, μs_g2, x), comb_iter_used)
         tnme_perms = map(x -> comp_unmat_perm_stat_nme(hs_g1, hs_g2, x), comb_iter_used)
-        tcmd_perms = map(x -> comp_unmat_perm_stat_cmd(ms_g1, ms_g2, x), comb_iter_used)
+        tcmd_perms = map(x -> comp_unmat_perm_stat_cmd(n_g1, n_g2, length(tmml_obs), cmd_tbl, x), comb_iter_used)
 
         # Compute p-values two-sided test
         @inbounds for k in 1:length(tmml_obs)
@@ -349,9 +330,6 @@ function mat_reg_test_tcmd(mods_g1::Vector{RegStruct}, mods_g2::Vector{RegStruct
     return (comp_mat_stat_tcmd(mods_g1, mods_g2), fill(NaN, length(mods_g1)))
     
 end
-##################################################################################################
-## Matched test Tmml & Tnme analysis region
-##################################################################################################
 """
     `comp_mat_diff_mml(MMLs_G1,MMLs_G2)`
 

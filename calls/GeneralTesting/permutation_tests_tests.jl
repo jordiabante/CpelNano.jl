@@ -1,5 +1,5 @@
 ######################################################################################
-## Unmatched test Tcmd
+## Tcmd matrix
 ######################################################################################
 using CpelNano
 
@@ -11,13 +11,8 @@ a2 = 10.0; b2 = 100.0; c2 = 20.0; ϕ2 = 0.5 * [a2,b2,c2];
 s1 = 4; s2 = 4; nse_sc = 1.0; seed = 123;
 ms_g1, ms_g2 = CpelNano.gen_grp_comp_data(s1, s2, ϕ1, ϕ2, nse_sc, seed);
 
-# Compute statistic
-cmd_cont_1 = CpelNano.comp_unmat_stat_cmd(ms_g1, ms_g1)
-cmd_cont_2 = CpelNano.comp_unmat_stat_cmd(ms_g1, ms_g1)
-cmd_treat = CpelNano.comp_unmat_stat_cmd(ms_g1, ms_g2)
-
-# Test
-CpelNano.unmat_reg_test_tcmd(ms_g1,ms_g2)
+# Compute matrix of CMDs
+cmd_tbl = CpelNano.get_unmat_cmd_tbl(ms_g1, ms_g2)
 
 ######################################################################################
 ## All unmatched tests
