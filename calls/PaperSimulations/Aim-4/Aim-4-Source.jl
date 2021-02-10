@@ -1,33 +1,4 @@
 #################################################################################################
-# AIM 4: group comparison performance
-#################################################################################################
-## Deps
-using Distributed
-@everywhere using Pkg
-@everywhere Pkg.activate("./") # <=
-@everywhere using CpelNano
-using StatsPlots
-using Distributions
-
-## Constants
-
-# IO
-const data_dir = "/Users/jordiabante/OneDrive - Johns Hopkins/CpelNano/Data/Simulations/Aim-4/" # <=
-const blind_friend_col = ["#999999","#E69F00","#56B4E9","#009E73","#F0E442","#0072B2","#D55E00","#CC79A7"]
-
-# Set up
-@everywhere const M = 5
-@everywhere const POBS = 1.0
-@everywhere const LEVEL_STD_M = 2.0
-@everywhere const LEVEL_STD_U = 2.0
-@everywhere const LEVEL_MEAN_M = 84.0
-@everywhere const LEVEL_MEAN_U = 80.0
-@everywhere const EF_PERC_RNG = 0.05:0.05:0.25
-
-## Default attributes
-default(titlefont=(14, "arial"),guidefont=(16, "arial"),tickfont=(12, "arial"))
-
-#################################################################################################
 # Functions
 #################################################################################################
 function get_ϕs_eff_rng(eff_type, config)
@@ -245,7 +216,7 @@ function get_pvals(test_out::CpelNano.RegStatTestStruct, eff_type::String)
     return pvals
     
 end
-@everywhere function pmap_run_sim(n_grp_reps::Int64, ϕ1::Vector{Float64}, ϕ2::Vector{Float64}, config::CpelNano.CpelNanoConfig)
+@everywhere function pmap_run_roc_sim(n_grp_reps::Int64, ϕ1::Vector{Float64}, ϕ2::Vector{Float64}, config::CpelNano.CpelNanoConfig)
 
     # Choose whether effect or not (50% chance)
     eff_bool_j = rand() > 0.5
@@ -281,7 +252,36 @@ end
     return eff_bool_j, test_out
 
 end
-function run_sim(n_sim_reps::Int64, n_grp_reps::Int64, eff_type::String, matched::Bool)
+@everywhere function pmap_run_null_sim(n_grp_reps::Int64, ϕ::Vector{Float64}, config::CpelNano.CpelNanoConfig)
+
+    CpelNano.print_log("Producing set of p-values...")
+
+    # Generate data
+    ms_g1, ms_g2 = gen_grp_data(n_grp_reps, ϕ, ϕ, config)
+
+    # Estimate parameters
+    for rep = 1:n_grp_reps
+        proc_rep_rs!(ms_g1[rep], config)
+        proc_rep_rs!(ms_g2[rep], config)
+    end
+
+    # Find valid reps
+    n_val = 0
+    for rep = 1:n_grp_reps
+        rs_1 = ms_g1[rep]
+        rs_2 = ms_g2[rep]
+        n_val += (rs_1.proc && rs_2.proc) ? 1 : 0
+    end
+    n_val == n_grp_reps || return nothing
+
+    # Perform test
+    test_out = config.matched ? CpelNano.mat_est_reg_test(ms_g1, ms_g2) : CpelNano.unmat_est_reg_test(ms_g1, ms_g2)
+    
+    # Return test out
+    return test_out
+
+end
+function run_roc_sim(n_sim_reps::Int64, n_grp_reps::Int64, eff_type::String, matched::Bool)
 
     # Init
     pval_thrs_rng = 0.0:0.001:1.0
@@ -308,7 +308,7 @@ function run_sim(n_sim_reps::Int64, n_grp_reps::Int64, eff_type::String, matched
         CpelNano.print_log("Effect percentage $(eff_size_arr[i])")
         
         # Generate data for multiple reps
-        pmap_out = pmap(i -> pmap_run_sim(n_grp_reps, ϕ1, ϕ2, config), 1:n_sim_reps)
+        pmap_out = pmap(i -> pmap_run_roc_sim(n_grp_reps, ϕ1, ϕ2, config), 1:n_sim_reps)
 
         # Get pvals
         pvals_neg = []
@@ -362,6 +362,50 @@ function run_sim(n_sim_reps::Int64, n_grp_reps::Int64, eff_type::String, matched
     return eff_size_arr, tpr, fpr
 
 end
+function run_null_sim(n_sim_reps::Int64, n_grp_reps::Int64, matched::Bool)
+    
+    # Init
+    ϕ = fill(0.0, 3)
+
+    # CpelNano config
+    config = CpelNano.CpelNanoConfig()
+    config.max_size_subreg = 350
+    config.matched = matched
+    config.max_em_iters = 25
+    config.max_em_init = 5
+    config.verbose = false
+    
+    # Generate data for multiple reps
+    pmap_out = pmap(i -> pmap_run_null_sim(n_grp_reps, ϕ, config), 1:n_sim_reps)
+
+    # Get pvals
+    pvals_tmml = []
+    pvals_tnme = []
+    pvals_tcmd = []
+    for x in pmap_out
+        isnothing(x) && continue
+        push!(pvals_tmml, get_pvals(x, "mml"))
+        push!(pvals_tnme, get_pvals(x, "nme"))
+        push!(pvals_tcmd, get_pvals(x, "cmd"))
+    end
+    
+    # Flatten vectors
+    pvals_tmml = vcat(pvals_tmml...)
+    pvals_tnme = vcat(pvals_tnme...)
+    pvals_tcmd = vcat(pvals_tcmd...)
+
+    # Remove NaN
+    is_nan = isnan.(pvals_tmml)
+    pvals_tmml = pvals_tmml[.!is_nan]
+    is_nan = isnan.(pvals_tnme)
+    pvals_tnme = pvals_tnme[.!is_nan]
+    is_nan = isnan.(pvals_tcmd)
+    pvals_tcmd = pvals_tcmd[.!is_nan]
+   
+    # Return pvals
+    return pvals_tmml, pvals_tnme, pvals_tcmd
+
+end
 function plt_roc(eff_size_arr, tpr, fpr, ttl)
     
     # Add each effect size
@@ -374,43 +418,90 @@ function plt_roc(eff_size_arr, tpr, fpr, ttl)
     return plt
 
 end
-#################################################################################################
-# Calls
-#################################################################################################
-
-# Arguments
-eff_type = ARGS[1]
-matched = parse(Bool, ARGS[2])
-n_sim_reps = parse(Int64, ARGS[3])
-CpelNano.print_log("Running ROC simulations for $(matched) $(eff_type) w/ $(n_sim_reps) reps")
-
-# Run
-if matched
-
-    ### Matched
+function plt_null_pvals_hist(pvals_tmml, pvals_tnme, pvals_tcmd, matched)
     
     # Vars
-    n_grp_reps = 6
+    y_lim = 0.5
+    n_bins = 20
+    y_label = "percentage (%)"
 
-    # Simulations
-    eff_size_arr, tpr, fpr = run_sim(n_sim_reps, n_grp_reps, eff_type, matched)
+    # Tmml
+    h = fit(Histogram, pvals_tmml, 0:1 / n_bins:1.0)
+    midpts = collect(h.edges[1]) .- 2 / n_bins / n_bins
+    percs = h.weights ./ sum(h.weights)
+    plt_tmml = plot(midpts, percs,  seriestype=:bar, label="", xlabel="", 
+        ylabel=y_label, title="Tmml", xlim=(0, 1), ylim=y_lim, size=(600, 500))
 
-    # Plot
-    plt = plt_roc(eff_size_arr, tpr, fpr, "ROC - $(eff_type) - matched ")
-    savefig(plt, "$(data_dir)/ROC-Matched-$(eff_type).pdf")
+    # Tnme
+    h = fit(Histogram, pvals_tnme, 0:1 / n_bins:1.0)
+    midpts = collect(h.edges[1]) .- 2 / n_bins
+    percs = h.weights ./ sum(h.weights)
+    if matched
+        plt_tnme = plot(midpts, percs,  seriestype=:bar, label="", xlabel="p-value", 
+            ylabel=y_label, title="Tnme", xlim=(0, 1), ylim=y_lim, size=(600, 500))
+    else
+        plt_tnme = plot(midpts, percs,  seriestype=:bar, label="", xlabel="", 
+            ylabel=y_label, title="Tnme", xlim=(0, 1), ylim=y_lim, size=(600, 500))
+    end
 
-else
+    # Tcmd
+    h = fit(Histogram, pvals_tcmd, 0:1 / n_bins:1.0)
+    midpts = collect(h.edges[1]) .- 2 / n_bins
+    percs = h.weights ./ sum(h.weights)
+    plt_tcmd = plot(midpts, percs,  seriestype=:bar, label="", xlabel="p-value", 
+        ylabel=y_label, title="Tcmd", xlim=(0, 1), ylim=y_lim, size=(600, 500))
+    
+    # Collage
+    if matched
+        plt = plot(plt_tmml, plt_tnme, layout=(2, 1), size=(600, 800))
+    else
+        plt = plot(plt_tmml, plt_tnme, plt_tcmd, layout=(3, 1), size=(600, 1200))
+    end
 
-    ### Unmatched
+    # Return plot
+    return plt
 
+end
+function plt_null_pvals_ecdf(pvals_tmml, pvals_tnme, pvals_tcmd, matched)
+    
     # Vars
-    n_grp_reps = 5
+    y_lim = (0, 1.0)
+    x_lim = (0, 1.0)
+    y_label = "ecdf"
+    pval_rng = 0.01:0.01:1.0
 
-    # Simulations
-    eff_size_arr, tpr, fpr = run_sim(n_sim_reps, n_grp_reps, eff_type, matched)
+    # Tmml
+    F = ecdf(pvals_tmml)
+    plt_tmml = plot(xlabel=" ", ylabel=y_label, title="Tmml", xlim=x_lim, ylim=y_lim, size=(600, 500))
+    plot!(plt_tmml, pval_rng, pval_rng, seriestype=:line, label="Ideal")
+    plot!(pval_rng, F.(pval_rng), seriestype=:line, label="Empirical")
 
-    # Plot
-    plt = plt_roc(eff_size_arr, tpr, fpr, "ROC - $(eff_type) - unmatched ")
-    savefig(plt, "$(data_dir)/ROC-Unmatched-$(eff_type).pdf")
+    # Tnme
+    F = ecdf(pvals_tnme)
+    if matched
+        plt_tnme = plot(xlabel="p-value", ylabel=y_label, title="Tnme", xlim=x_lim, ylim=y_lim, size=(600, 500))
+        plot!(plt_tnme, pval_rng, pval_rng, seriestype=:line, label="Ideal")
+        plot!(pval_rng, F.(pval_rng), seriestype=:line, label="Empirical")
+    else
+        plt_tnme = plot(xlabel=" ", ylabel=y_label, title="Tnme", xlim=x_lim, ylim=y_lim, size=(600, 500))
+        plot!(plt_tnme, pval_rng, pval_rng, seriestype=:line, label="Ideal")
+        plot!(pval_rng, F.(pval_rng), seriestype=:line, label="Empirical")
+    end
+
+    # Tcmd
+    F = ecdf(pvals_tcmd)
+    plt_tcmd = plot(xlabel="p-value", ylabel=y_label, title="Tcmd", xlim=x_lim, ylim=y_lim, size=(600, 500))
+    plot!(plt_tcmd, pval_rng, pval_rng, seriestype=:line, label="Ideal")
+    plot!(pval_rng, F.(pval_rng), seriestype=:line, label="Empirical")
+    
+    # Collage
+    if matched
+        plt = plot(plt_tmml, plt_tnme, layout=(2, 1), size=(600, 800))
+    else
+        plt = plot(plt_tmml, plt_tnme, plt_tcmd, layout=(3, 1), size=(600, 1200))
+    end
+
+    # Return plot
+    return plt
 
 end

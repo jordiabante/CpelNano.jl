@@ -1,37 +1,3 @@
-#################################################################################################
-# AIM 5: two-sample comparison performance
-#################################################################################################
-## Deps
-using Distributed
-@everywhere using Pkg
-@everywhere Pkg.activate("./") # <=
-@everywhere using CpelNano
-using StatsPlots
-using Distributions
-using Combinatorics
-
-## Constants
-
-# IO
-const data_dir = "/Users/jordiabante/OneDrive - Johns Hopkins/CpelNano/Data/Simulations/Aim-5/" # <=
-const blind_friend_col = ["#999999","#E69F00","#56B4E9","#009E73","#F0E442","#0072B2","#D55E00","#CC79A7"]
-
-# Set up
-@everywhere const M = 5
-@everywhere const POBS = 1.0
-@everywhere const LEVEL_STD_M = 2.0
-@everywhere const LEVEL_STD_u = 2.0
-@everywhere const LEVEL_MEAN_M = 84.0
-@everywhere const LEVEL_MEAN_u = 80.0
-@everywhere const LMAX_TWO_SAMP_AIM_5 = 100
-@everywhere const EFF_PERC_RNG = 0.05:0.05:0.25
-
-## Default attributes
-default(titlefont=(14, "arial"),guidefont=(16, "arial"),tickfont=(12, "arial"))
-
-#################################################################################################
-# Functions
-#################################################################################################
 function get_ϕs_eff_rng(eff_type, config)
     
     # Pick max values
@@ -150,7 +116,7 @@ end
     return nothing
     
 end
-@everywhere function gen_grp_data(ϕ1::Vector{Float64}, ϕ2::Vector{Float64}, config::CpelNano.CpelNanoConfig)
+@everywhere function gen_pair_data(ϕ1::Vector{Float64}, ϕ2::Vector{Float64}, config::CpelNano.CpelNanoConfig)
 
     ## Set baseline struct
     rs = create_baseline_struct(config)
@@ -160,7 +126,7 @@ end
     ## Group 1
     
     # Generate calls
-    ms_g1 = CpelNano.cpel_samp_ont(M, αs1, βs1, POBS, LEVEL_MEAN_M, LEVEL_STD_M, LEVEL_MEAN_u, LEVEL_STD_u)
+    ms_g1 = CpelNano.cpel_samp_ont(M, αs1, βs1, POBS, LEVEL_MEAN_M, LEVEL_STD_M, LEVEL_MEAN_U, LEVEL_STD_U)
     
     # Fill fields
     cp_rs_flds!(rs, ms_g1)
@@ -168,7 +134,7 @@ end
     ## Group 2
     
     # Generate data
-    ms_g2 = CpelNano.cpel_samp_ont(M, αs2, βs2, POBS, LEVEL_MEAN_M, LEVEL_STD_M, LEVEL_MEAN_u, LEVEL_STD_u)
+    ms_g2 = CpelNano.cpel_samp_ont(M, αs2, βs2, POBS, LEVEL_MEAN_M, LEVEL_STD_M, LEVEL_MEAN_U, LEVEL_STD_U)
     
     # Fill fields
     cp_rs_flds!(rs, ms_g2)
@@ -271,8 +237,6 @@ end
 end
 function pmap_diff_two_samp_comp(mod_s1::CpelNano.RegStruct, mod_s2::CpelNano.RegStruct, config::CpelNano.CpelNanoConfig)::CpelNano.RegStatTestStruct
 
-    CpelNano.print_log("Processing estimation region")
-    
     # Init output struct
     test_struct = CpelNano.RegStatTestStruct(mod_s1)
     
@@ -379,10 +343,10 @@ end
     # Generate data
     if eff_bool_j
         # Introduce effect
-        m_g1, m_g2 = gen_grp_data(ϕ1, ϕ2, config)
+        m_g1, m_g2 = gen_pair_data(ϕ1, ϕ2, config)
     else
-        # Do not introduce effect
-        m_g1, m_g2 = gen_grp_data(ϕ1, ϕ1, config)
+    # Do not introduce effect
+        m_g1, m_g2 = gen_pair_data(ϕ1, ϕ1, config)
     end
 
     # Estimate parameters
@@ -390,13 +354,34 @@ end
     proc_rep_rs!(m_g2, config)
 
     # Find valid reps
-    (m_g1.proc && m_g2.proc) || return nothing
+    m_g1.proc && m_g2.proc || return nothing
 
     # Perform test
     test_out = pmap_diff_two_samp_comp(m_g1, m_g2, config)
     
     # Return test out and effect bool
     return eff_bool_j, test_out
+
+end
+function map_run_null_sim(ϕ::Vector{Float64}, config::CpelNano.CpelNanoConfig)
+
+    CpelNano.print_log("Generating set of p-values...")
+
+    # Generate data
+    m_g1, m_g2 = gen_pair_data(ϕ, ϕ, config)
+
+    # Estimate parameters
+    proc_rep_rs!(m_g1, config)
+    proc_rep_rs!(m_g2, config)
+
+    # Find valid reps
+    m_g1.proc && m_g2.proc || return nothing
+
+    # Perform test
+    test_out = pmap_diff_two_samp_comp(m_g1, m_g2, config)
+    
+    # Return test out
+    return test_out
 
 end
 function run_sim(n_sim_reps::Int64, eff_type::String)
@@ -471,17 +456,61 @@ function run_sim(n_sim_reps::Int64, eff_type::String)
             # Store TPR & FPR
             tpr[i,j] = tp / (tp + fn + 1)
             fpr[i,j] = fp / (fp + tn + 1)
-
+    
         end
         
     end
-   
+    
+    # Return
     return eff_size_arr, tpr, fpr
+
+end
+function run_null_sim(n_sim_reps::Int64)
+
+    # CpelNano config
+    config = CpelNano.CpelNanoConfig()
+    config.max_size_subreg = 350
+    config.max_em_iters = 25
+    config.max_em_init = 5
+    config.verbose = false
+        
+    # Init
+    ϕ = fill(0.0, 3)
+    
+    # Generate data for multiple reps
+    map_out = map(i -> map_run_null_sim(ϕ, config), 1:n_sim_reps)
+
+    # Get pvals
+    pvals_tmml = []
+    pvals_tnme = []
+    pvals_tcmd = []
+    for x in map_out
+        isnothing(x) && continue
+        push!(pvals_tmml, get_pvals(x, "mml"))
+        push!(pvals_tnme, get_pvals(x, "nme"))
+        push!(pvals_tcmd, get_pvals(x, "cmd"))
+    end
+    
+    # Flatten vectors
+    pvals_tmml = vcat(pvals_tmml...)
+    pvals_tnme = vcat(pvals_tnme...)
+    pvals_tcmd = vcat(pvals_tcmd...)
+
+    # Remove NaN
+    is_nan = isnan.(pvals_tmml)
+    pvals_tmml = pvals_tmml[.!is_nan]
+    is_nan = isnan.(pvals_tnme)
+    pvals_tnme = pvals_tnme[.!is_nan]
+    is_nan = isnan.(pvals_tcmd)
+    pvals_tcmd = pvals_tcmd[.!is_nan]
+   
+    # Return pvals
+    return pvals_tmml, pvals_tnme, pvals_tcmd
 
 end
 function plt_roc(eff_size_arr, tpr, fpr, ttl)
     
-    # Add each effect size
+        # Add each effect size
     plt = plot(xlabel="FPR", ylabel="TPR", title=ttl, xlim=(0, 1), ylim=(0, 1), size=(700, 700), legend=:bottomright)
     for (i, eff_size) in enumerate(eff_size_arr)
         plot!(plt, fpr[i,:], tpr[i,:],  seriestype=:line, label="$(round(eff_size;digits=2))", color=blind_friend_col[i])
@@ -491,18 +520,71 @@ function plt_roc(eff_size_arr, tpr, fpr, ttl)
     return plt
 
 end
-#################################################################################################
-# Calls
-#################################################################################################
+function plt_null_pvals_hist(pvals_tmml, pvals_tnme, pvals_tcmd)
+    
+    # Vars
+    y_lim = 0.5
+    n_bins = 20
+    y_label = "percentage (%)"
 
-# Arguments
-eff_type = ARGS[1]
-n_sim_reps = parse(Int64, ARGS[2])
-CpelNano.print_log("Running ROC simulations for two-sample test $(eff_type) w/ $(n_sim_reps) reps")
+    # Tmml
+    h = fit(Histogram, pvals_tmml, 0:1 / n_bins:1.0)
+    midpts = collect(h.edges[1]) .- 2 / n_bins / n_bins
+    percs = h.weights ./ sum(h.weights)
+    plt_tmml = plot(midpts, percs,  seriestype=:bar, label="", xlabel="", 
+        ylabel=y_label, title="Tmml", xlim=(0, 1), ylim=y_lim, size=(600, 500))
 
-# Run
-eff_size_arr, tpr, fpr = run_sim(n_sim_reps, eff_type)
+    # Tnme
+    h = fit(Histogram, pvals_tnme, 0:1 / n_bins:1.0)
+    midpts = collect(h.edges[1]) .- 2 / n_bins
+    percs = h.weights ./ sum(h.weights)
+    plt_tnme = plot(midpts, percs,  seriestype=:bar, label="", xlabel="", 
+        ylabel=y_label, title="Tnme", xlim=(0, 1), ylim=y_lim, size=(600, 500))
 
-# Plot
-plt = plt_roc(eff_size_arr, tpr, fpr, "ROC - $(eff_type) - two-sample test ")
-savefig(plt, "$(data_dir)/ROC-Two-Sample-Test-$(eff_type).pdf")
+    # Tcmd
+    h = fit(Histogram, pvals_tcmd, 0:1 / n_bins:1.0)
+    midpts = collect(h.edges[1]) .- 2 / n_bins
+    percs = h.weights ./ sum(h.weights)
+    plt_tcmd = plot(midpts, percs,  seriestype=:bar, label="", xlabel="p-value", 
+        ylabel=y_label, title="Tcmd", xlim=(0, 1), ylim=y_lim, size=(600, 500))
+    
+    # Collage
+    plt = plot(plt_tmml, plt_tnme, plt_tcmd, layout=(3, 1), size=(600, 1200))
+
+    # Return plot
+    return plt
+    
+end
+    function plt_null_pvals_ecdf(pvals_tmml, pvals_tnme, pvals_tcmd)
+    
+    # Vars
+    y_lim = (0, 1.0)
+    x_lim = (0, 1.0)
+    y_label = "ecdf"
+    pval_rng = 0.01:0.01:1.0
+
+    # Tmml
+    F = ecdf(pvals_tmml)
+    plt_tmml = plot(xlabel=" ", ylabel=y_label, title="Tmml", xlim=x_lim, ylim=y_lim, size=(600, 500))
+    plot!(plt_tmml, pval_rng, pval_rng, seriestype=:line, label="Ideal")
+    plot!(pval_rng, F.(pval_rng), seriestype=:line, label="Empirical")
+
+    # Tnme
+    F = ecdf(pvals_tnme)
+    plt_tnme = plot(xlabel=" ", ylabel=y_label, title="Tnme", xlim=x_lim, ylim=y_lim, size=(600, 500))
+    plot!(plt_tnme, pval_rng, pval_rng, seriestype=:line, label="Ideal")
+    plot!(pval_rng, F.(pval_rng), seriestype=:line, label="Empirical")
+
+    # Tcmd
+    F = ecdf(pvals_tcmd)
+    plt_tcmd = plot(xlabel="p-value", ylabel=y_label, title="Tcmd", xlim=x_lim, ylim=y_lim, size=(600, 500))
+    plot!(plt_tcmd, pval_rng, pval_rng, seriestype=:line, label="Ideal")
+    plot!(pval_rng, F.(pval_rng), seriestype=:line, label="Empirical")
+    
+    # Collage
+    plt = plot(plt_tmml, plt_tnme, plt_tcmd, layout=(3, 1), size=(600, 1200))
+
+    # Return plot
+    return plt
+
+end
