@@ -1,4 +1,19 @@
 #####################################################################################################
+# Partition nanolish file
+#####################################################################################################
+using CpelNano
+
+## Regular mode
+pkg_dir = dirname(dirname(pathof(CpelNano)))
+
+# IO
+dataDir = "$(pkg_dir)/examples/full_example/"
+nano = "$(dataDir)/nanopolish/full_example_noise2.0_methylation_calls.sorted.tsv"
+
+# Partition nanopolish file into 5 files
+CpelNano.split_nanopolish_file(nano,5)
+
+#####################################################################################################
 # Sample averages nano file
 #####################################################################################################
 using CpelNano

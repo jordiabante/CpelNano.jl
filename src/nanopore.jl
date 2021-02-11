@@ -1,4 +1,89 @@
 """
+    `split_nanopolish_file(NANO_FILE,N_FILES)`
+
+    Function that splits nanopolish file into `N_FILES` files.
+
+    # Examples
+    ```julia-repl
+    julia> CpelNano.split_nanopolish_file(nano_file,n_files)
+    ```
+"""
+function split_nanopolish_file(nano_file::String, n_files::Int64)::Nothing
+
+    # Prefix output file
+    pref = split(nano_file, ".tsv")[1]
+
+    print_log("Getting read IDs...")
+
+    # Obtain dictionary with all read names
+    header = ""
+    read_nm_vec = Vector{String}()
+    open(nano_file) do f
+        for line in enumerate(eachline(f))
+            # Record and skip header
+            if line[1] == 1
+                header =  line[2]
+                continue
+            end
+            # Get line info
+            line_vec = split(line[2], "\t")
+            # Get ID
+            line_id = line_vec[5]
+            # Add
+            line_id in read_nm_vec || push!(read_nm_vec, line_id)
+        end
+    end
+    
+    # Number of reads per file
+    base_num = div(length(read_nm_vec), n_files)
+    extra_num = mod(length(read_nm_vec), n_files)
+    
+    # Permute order of reads so to not create bias
+    permute!(read_nm_vec, sample(1:length(read_nm_vec), length(read_nm_vec);replace=false))
+
+    print_log("Randomly assigning read IDs to files...")
+
+    # Assign read to each file
+    read_file_ind = []
+    file_bnds = [i * base_num + extra_num for i = 1:n_files]
+    @inbounds for i = 1:length(read_nm_vec)
+        push!(read_file_ind, findfirst(x -> i <= x, file_bnds))
+    end
+
+    # Write each output file
+    for ind_file = 1:n_files
+        # Name of file
+        nth_file = "$(pref).$(ind_file).tsv"
+        print_log("Writing file $(ind_file) out of $(n_files)...")
+        # Write individual file
+        open(nth_file, "w") do io
+            # Add header
+            write(io, "$(header)\n")
+            # Add reads
+            open(nano_file) do f
+                for line in enumerate(eachline(f))
+                    # Skip header
+                    line[1] == 1 && continue
+                    # Get line info
+                    line_vec = split(line[2], "\t")
+                    # Get ID
+                    line_id = line_vec[5]
+                    # Get index of read in permuted vector
+                    read_ind_vec = findfirst(x -> x == line_id, read_nm_vec)
+                    # If read belongs to this file print
+                    if read_file_ind[read_ind_vec] == ind_file
+                        write(io, "$(line[2])\n")
+                    end
+                end
+            end
+        end
+    end
+
+    # Return nothing
+    return nothing
+
+end
+"""
     `get_calls_nanopolish(CALL_DIC,REG_DATA)`
 
     Function that using the takes overlapping the analysis region and extracts information for each CpG 
@@ -9,28 +94,28 @@
     julia> CpelNano.get_calls_nanopolish(call_dic,rs)
     ```
 """
-function get_calls_nanopolish!(call_dic::Dict{String,Vector{Vector{SubString}}},rs::RegStruct,mod_nse::Bool)::Nothing
+function get_calls_nanopolish!(call_dic::Dict{String,Vector{Vector{SubString}}}, rs::RegStruct, mod_nse::Bool)::Nothing
 
     # For each read in call_dic
     calls = Vector{Vector{MethCallCpgGrp}}()
     @inbounds for kk in keys(call_dic)
 
         # Initizalize vector of group calls for the read
-        call = [MethCallCpgGrp() for l=1:length(rs.cpg_grps)]
+        call = [MethCallCpgGrp() for l = 1:length(rs.cpg_grps)]
         
         @inbounds for cpg_grp_dat in call_dic[kk]
             
             # Get chr_start (0-based in nanopolish)
             # Note: nanopolish does not consider the ±5 flanking bp
-            cpg_grp_st = parse(Int64,cpg_grp_dat[3]) + 1 - 5
-            cpg_grp_end = parse(Int64,cpg_grp_dat[4]) + 1 + 5
+            cpg_grp_st = parse(Int64, cpg_grp_dat[3]) + 1 - 5
+            cpg_grp_end = parse(Int64, cpg_grp_dat[4]) + 1 + 5
             
             # Find correct index of CpG group in region
-            x_index_st = findfirst(x->minimum(x.grp_int)==cpg_grp_st,rs.cpg_grps)
-            x_index_end = findfirst(x->maximum(x.grp_int)==cpg_grp_end,rs.cpg_grps)
+            x_index_st = findfirst(x -> minimum(x.grp_int) == cpg_grp_st, rs.cpg_grps)
+            x_index_end = findfirst(x -> maximum(x.grp_int) == cpg_grp_end, rs.cpg_grps)
             (isnothing(x_index_st) || isnothing(x_index_end)) && continue
                 # print_log("x_index_st: $(x_index_st)")
-
+                
             # Check if there is a discrepancy in CpG group coordinates
             if x_index_st != x_index_end
                 print_log("[WARNING] CpG group coordinates do not match nanopolish output ... ")
@@ -38,33 +123,33 @@ function get_calls_nanopolish!(call_dic::Dict{String,Vector{Vector{SubString}}},
             end
             
             # Record log p(y|x̄)
-            log_pyx_m = parse(Float64,cpg_grp_dat[7])
-            log_pyx_u = parse(Float64,cpg_grp_dat[8])
+            log_pyx_m = parse(Float64, cpg_grp_dat[7])
+            log_pyx_u = parse(Float64, cpg_grp_dat[8])
             if mod_nse
                 # Modeling noise uses log p's given by nanopolish
                 call[x_index_st].log_pyx_m = log_pyx_m
                 call[x_index_st].log_pyx_u = log_pyx_u
             else
-                # Not modeling noise does not use log p's given by nanopolish
+            # Not modeling noise does not use log p's given by nanopolish
                 call[x_index_st].log_pyx_m = log_pyx_m > log_pyx_u ? log_pyx_right_x : log_pyx_wrong_x
-                call[x_index_st].log_pyx_u = log_pyx_m > log_pyx_u ? log_pyx_wrong_x : log_pyx_right_x
+        call[x_index_st].log_pyx_u = log_pyx_m > log_pyx_u ? log_pyx_wrong_x : log_pyx_right_x
             end
 
             # CpG group is observed in read
             call[x_index_st].obs = true
-            
+
         end
         
         # Push call
-        push!(calls,call)
+        push!(calls, call)
 
     end
     
     # Store call info
     rs.calls = calls
-    rs.m = length(calls)
+rs.m = length(calls)
 
-    # Return nothing
+# Return nothing
     return nothing
 
 end
@@ -78,14 +163,14 @@ end
     julia> CpelNano.get_calls!(reg,call_file,config)
     ```
 """
-function get_calls!(rs::RegStruct,call_file::String,config::CpelNanoConfig)::Nothing
+function get_calls!(rs::RegStruct, call_file::String, config::CpelNanoConfig)::Nothing
 
     # Get calls
-    if config.caller=="nanopolish"
+    if config.caller == "nanopolish"
         # nanopolish (sorted)
-        data_dic = get_dic_nanopolish(rs,call_file)
-        get_calls_nanopolish!(data_dic,rs,config.mod_nse)
-    else
+        data_dic = get_dic_nanopolish(rs, call_file)
+        get_calls_nanopolish!(data_dic, rs, config.mod_nse)
+else
         # exit if not valid caller
         print_log("Invalid option for config.caller ...")
         sleep(5)
@@ -112,7 +197,7 @@ function rscle_grp_mod!(rs::RegStruct)::Nothing
     rs.L = rs.N
     rs.dl = rs.dn
     rs.ρl = rs.ρn
-    rs.Nl = fill(1,rs.N)
+    rs.Nl = fill(1, rs.N)
 
     # Return nothing
     return nothing
@@ -129,7 +214,7 @@ end
     julia> CpelNano.pmap_analyze_reg(reg_int,chr,nano,fa_rec,config)
     ```
 """
-function pmap_analyze_reg(reg_int::UnitRange{Int64},chr::String,nano::String,fa_rec::FASTA.Record,config::CpelNanoConfig)::RegStruct
+function pmap_analyze_reg(reg_int::UnitRange{Int64}, chr::String, nano::String, fa_rec::FASTA.Record, config::CpelNanoConfig)::RegStruct
 
     ## Get info about analysis region
 
@@ -145,33 +230,33 @@ function pmap_analyze_reg(reg_int::UnitRange{Int64},chr::String,nano::String,fa_
     print_log("Processing $(rs.chr):$(rs.chrst)-$(rs.chrend)")
 
     # Get CpG site information (1-based)
-    get_grp_info!(rs,fa_rec,config.min_grp_dist)
-    length(rs.cpg_pos)>9 || return rs
+    get_grp_info!(rs, fa_rec, config.min_grp_dist)
+    length(rs.cpg_pos) > 9 || return rs
     config.verbose && print_log("CpG sites: $(rs.cpg_pos)")
     config.verbose && print_log("CpG groups: $(rs.cpg_grps)")
 
     # Retrieve region calls
-    get_calls!(rs,nano,config)
+    get_calls!(rs, nano, config)
     config.verbose && print_log("Number of reads: $(rs.m)")
     config.verbose && print_log("Average depth: $(get_ave_depth(rs))")
-    config.verbose && print_log("Percentage groups observed: $(perc_gprs_obs(rs)*100)%")
+    config.verbose && print_log("Percentage groups observed: $(perc_gprs_obs(rs) * 100)%")
         # config.verbose && print_log("Calls: $(rs.calls)")
         # readline()
 
     # Skip region if not enough data
-    get_ave_depth(rs)>=config.min_cov || return rs
-    perc_gprs_obs(rs)>=0.66 || return rs
-
+    get_ave_depth(rs) >= config.min_cov || return rs
+    perc_gprs_obs(rs) >= 0.66 || return rs
+    
     # Skip region if only one group
-    rs.L>1 || return rs
+    rs.L > 1 || return rs
 
     ## Estimate ϕs
 
     # Estimate parameter vector ϕ
-    get_ϕhat!(rs,config)
+    get_ϕhat!(rs, config)
 
     # Leave if we couldn't estimate ϕ
-    length(rs.ϕhat)>0 || return rs
+    length(rs.ϕhat) > 0 || return rs
     config.verbose && print_log("ϕhat: $(rs.ϕhat)")
         # readline()
 
@@ -180,7 +265,7 @@ function pmap_analyze_reg(reg_int::UnitRange{Int64},chr::String,nano::String,fa_
     config.verbose && print_log("rs.Nl: $(rs.Nl)")
     
     ## Statistical summaries
-    get_stat_sums!(rs,config)
+    get_stat_sums!(rs, config)
 
     # Set estimation region as processed
     rs.proc = true
@@ -199,26 +284,26 @@ end
     julia> CpelNano.analyze_nano(nano,fasta,config)
     ```
 """
-function analyze_nano(nano::String,fasta::String,config::CpelNanoConfig)::Nothing
+function analyze_nano(nano::String, fasta::String, config::CpelNanoConfig)::Nothing
 
     # Find chromosomes
-    chr_names,chr_sizes = get_genome_info(fasta)
+    chr_names, chr_sizes = get_genome_info(fasta)
 
     # Create output directory if not existant
     isdir(config.out_dir) || mkdir(config.out_dir)
 
     # Get output file names
-    config.out_files = OutputFiles(config.out_dir,config.out_prefix)
+    config.out_files = OutputFiles(config.out_dir, config.out_prefix)
 
     # Check if output file exists
     check_output_exists(config) && return nothing
-
+    
     # If BED file provided, identify intervals of interest
     print_log("Checking for target regions ...")
     targ_regs = isempty(config.bed_reg) ? nothing : read_bed_reg(config)
 
     # Loop over chromosomes
-    for i=1:length(chr_names)
+    for i = 1:length(chr_names)
         
         # Get chromosome name and size
         chr = chr_names[i]
@@ -231,22 +316,22 @@ function analyze_nano(nano::String,fasta::String,config::CpelNanoConfig)::Nothin
         if isnothing(targ_regs)
             # If no BED file provided partition entire chromosome
             print_log("Partitioning chr $(chr) ...")
-            chr_part = get_chr_part(chr,config,fasta)
+            chr_part = get_chr_part(chr, config, fasta)
         else
             # If BED file provided, partition regions of interest. NOTE: ensure no split CpG groups
             print_log("Partitioning target regions in chr $(chr) ...")
-            haskey(targ_regs,chr) || continue
-            chr_part = get_chr_part(chr,config,fasta,targ_regs[chr])
+            haskey(targ_regs, chr) || continue
+            chr_part = get_chr_part(chr, config, fasta, targ_regs[chr])
         end
         
         # Get FASTA record for chr
-        fa_rec = get_chr_fa_rec(chr,fasta)
+        fa_rec = get_chr_fa_rec(chr, fasta)
         
-        # Process each analysis region in chr
-        out_pmap = pmap(x->pmap_analyze_reg(x,chr,nano,fa_rec,config),chr_part)
+# Process each analysis region in chr
+        out_pmap = pmap(x -> pmap_analyze_reg(x, chr, nano, fa_rec, config), chr_part)
 
         # Write chromosome
-        write_output(out_pmap,config)
+        write_output(out_pmap, config)
 
     end
 
@@ -264,7 +349,7 @@ end
     julia> CpelNano.pmap_nano_smp_est(reg_int,chr,nano,fa_rec,config)
     ```
 """
-function pmap_nano_smp_est(reg_int::UnitRange{Int64},chr::String,nano::String,fa_rec::FASTA.Record,config::CpelNanoConfig)::RegStruct
+function pmap_nano_smp_est(reg_int::UnitRange{Int64}, chr::String, nano::String, fa_rec::FASTA.Record, config::CpelNanoConfig)::RegStruct
 
     ## Get info about analysis region
 
@@ -280,25 +365,25 @@ function pmap_nano_smp_est(reg_int::UnitRange{Int64},chr::String,nano::String,fa
     print_log("Processing $(rs.chr):$(rs.chrst)-$(rs.chrend)")
 
     # Get CpG site information (1-based)
-    get_grp_info!(rs,fa_rec,config.min_grp_dist)
-    length(rs.cpg_pos)>9 || return rs
+    get_grp_info!(rs, fa_rec, config.min_grp_dist)
+    length(rs.cpg_pos) > 9 || return rs
     config.verbose && print_log("CpG sites: $(rs.cpg_pos)")
     config.verbose && print_log("CpG groups: $(rs.cpg_grps)")
 
     # Retrieve region calls
-    get_calls!(rs,nano,config)
+    get_calls!(rs, nano, config)
     config.verbose && print_log("Number of reads: $(rs.m)")
     config.verbose && print_log("Average depth: $(get_ave_depth(rs))")
-    config.verbose && print_log("Percentage groups observed: $(perc_gprs_obs(rs)*100)%")
+    config.verbose && print_log("Percentage groups observed: $(perc_gprs_obs(rs) * 100)%")
         # config.verbose && print_log("Calls: $(rs.calls)")
         # readline()
 
     # Skip region if not enough data
-    get_ave_depth(rs)>=config.min_cov || return rs
-    perc_gprs_obs(rs)>=0.66 || return rs
-
+    get_ave_depth(rs) >= config.min_cov || return rs
+    perc_gprs_obs(rs) >= 0.66 || return rs
+    
     # Skip region if only one group
-    rs.L>1 || return rs
+    rs.L > 1 || return rs
 
     ## Compute sample averages
     comp_smp_exps!(rs)
@@ -323,16 +408,16 @@ end
     julia> CpelNano.nano_smp_est(nano,fasta,config)
     ```
 """
-function nano_smp_est(nano::String,fasta::String,config::CpelNanoConfig)::Nothing
+function nano_smp_est(nano::String, fasta::String, config::CpelNanoConfig)::Nothing
 
     # Find chromosomes
-    chr_names,chr_sizes = get_genome_info(fasta)
+    chr_names, chr_sizes = get_genome_info(fasta)
 
     # Create output directory if not existant
     isdir(config.out_dir) || mkdir(config.out_dir)
 
     # Get output file names
-    config.out_files = OutputFiles(config.out_dir,config.out_prefix)
+    config.out_files = OutputFiles(config.out_dir, config.out_prefix)
 
     # Check if output file exists
     check_output_exists(config) && return nothing
@@ -342,7 +427,7 @@ function nano_smp_est(nano::String,fasta::String,config::CpelNanoConfig)::Nothin
     targ_regs = isempty(config.bed_reg) ? nothing : read_bed_reg(config)
 
     # Loop over chromosomes
-    for i=1:length(chr_names)
+    for i = 1:length(chr_names)
         
         # Get chromosome name and size
         chr = chr_names[i]
@@ -353,17 +438,17 @@ function nano_smp_est(nano::String,fasta::String,config::CpelNanoConfig)::Nothin
         
         # Get analysis region start positions
         print_log("Partitioning chr $(chr) ...")
-        chr_part = get_chr_part(chr,config,fasta)
+        chr_part = get_chr_part(chr, config, fasta)
         
         # Get FASTA record for chr
-        fa_rec = get_chr_fa_rec(chr,fasta)
+        fa_rec = get_chr_fa_rec(chr, fasta)
         
         # Process each analysis region in chr
-        out_pmap = pmap(x->pmap_nano_smp_est(x,chr,nano,fa_rec,config),chr_part)
+        out_pmap = pmap(x -> pmap_nano_smp_est(x, chr, nano, fa_rec, config), chr_part)
 
         # Write output
-        write_output_ex(config.out_files.ex_file,out_pmap)
-        write_output_exx(config.out_files.exx_file,out_pmap)
+        write_output_ex(config.out_files.ex_file, out_pmap)
+        write_output_exx(config.out_files.exx_file, out_pmap)
 
     end
 
