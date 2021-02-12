@@ -67,6 +67,6 @@ include("two_samp_perm_tests.jl")
 include("genome_analysis.jl")
 include("wgbs.jl")
 include("nanopore.jl")
-include("differential_analysis.jl")
+include("multiple_hypothesis.jl")
 
 end # module

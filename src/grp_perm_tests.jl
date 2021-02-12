@@ -678,6 +678,10 @@ function diff_grp_comp(mod_fls_g1::Vector{String}, mod_fls_g2::Vector{String}, f
 
     end
 
+    # Perform multiple hypothesis testing
+    print_log("Multiple hypothesis testing")
+    mult_hyp_corr(config)
+
     # Return nothing
     return nothing
 

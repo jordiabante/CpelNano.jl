@@ -72,7 +72,7 @@ config.matched = false
 config.verbose = true
 
 # Differential analysis
-# CpelNano.diff_grp_comp(mod_fls_g1,mod_fls_g2,fasta,config)
+CpelNano.diff_grp_comp(mod_fls_g1,mod_fls_g2,fasta,config)
 
 ## Matched
 
