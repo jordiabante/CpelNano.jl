@@ -63,7 +63,7 @@ function pmap_two_samp_null_stats(rs_ref::RegStruct, calls_s1::Vector{Vector{Met
 
     # Leave if we couldn't estimate ϕ
     (length(aux_rs_s1.ϕhat) > 0 && length(aux_rs_s2.ϕhat) > 0) || return tmml, tnme, tcmd
-    print_log("ϕhat1=$(aux_rs_s1.ϕhat); ϕhat2=$(aux_rs_s2.ϕhat)")
+    config.verbose && print_log("ϕhat1=$(aux_rs_s1.ϕhat); ϕhat2=$(aux_rs_s2.ϕhat)")
 
     # Re-scale to per cpg site resolution
     rscle_grp_mod!(aux_rs_s1)
@@ -77,7 +77,7 @@ function pmap_two_samp_null_stats(rs_ref::RegStruct, calls_s1::Vector{Vector{Met
     tmml = abs.(aux_rs_s1.mml - aux_rs_s2.mml)
     tnme = abs.(aux_rs_s1.nme - aux_rs_s2.nme)
     tcmd = comp_cmd(aux_rs_s1, aux_rs_s2)
-    print_log("tmml=$(tmml[1]); tnme=$(tnme[1]); tcmd=$(tcmd[1])")
+    config.verbose && print_log("tmml=$(tmml[1]); tnme=$(tnme[1]); tcmd=$(tcmd[1])")
 
     # Return tuple
     return tmml, tnme, tcmd
@@ -260,6 +260,10 @@ function diff_two_samp_comp(mods_path_s1::String, mods_path_s2::String, nano_s1:
         write_diff_output(pmap_out, config)
 
     end
+
+    # Perform multiple hypothesis testing
+    print_log("Multiple hypothesis testing")
+    mult_hyp_corr(config)
 
     # Return nothing
     return nothing
