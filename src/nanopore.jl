@@ -354,7 +354,7 @@ function analyze_nano(nano::String, fasta::String, config::CpelNanoConfig)::Noth
         # Get FASTA record for chr
         fa_rec = get_chr_fa_rec(chr, fasta)
         
-# Process each analysis region in chr
+        # Process each analysis region in chr
         out_pmap = pmap(x -> pmap_analyze_reg(x, chr, nano, fa_rec, config), chr_part)
 
         # Write chromosome
