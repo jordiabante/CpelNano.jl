@@ -1,4 +1,44 @@
 """
+    `pmap_split_nanopolish_file(NANO_FILE,N_FILES,HEADER,PREF,READ_FILE_IND,READ_NAME_VEC,IND_FILE)`
+
+    Function writes one of the files in `split_nanopolish_file`.
+
+    # Examples
+    ```julia-repl
+    julia> CpelNano.pmap_split_nanopolish_file(nano_file,n_files,header,pref,read_file_ind,read_name_vec,ind_file)
+    ```
+"""
+function pmap_split_nanopolish_file(nano_file::String, n_files::Int64, header::String, pref::SubString{String}, read_file_ind::Vector{Int64}, read_nm_vec::Vector{String}, ind_file::Int64)::Nothing
+
+    # Name of file
+    nth_file = "$(pref).rep_$(ind_file).tsv"
+    print_log("Writing file $(ind_file) out of $(n_files)...")
+    # Write individual file
+    open(nth_file, "w") do io
+        # Add header
+        write(io, "$(header)\n")
+        # Add reads
+        open(nano_file) do f
+            for line in enumerate(eachline(f))
+                # Skip header
+                line[1] == 1 && continue
+                # Get ID
+                line_id = split(line[2], "\t")[5]
+                # Get index of read in permuted vector
+                read_ind_vec = findfirst(x -> x == line_id, read_nm_vec)
+                # If read belongs to this file print
+                if read_file_ind[read_ind_vec] == ind_file
+                    write(io, "$(line[2])\n")
+                end
+            end
+        end
+    end
+
+    # Return nothing
+    return nothing
+
+end
+"""
     `split_nanopolish_file(NANO_FILE,N_FILES)`
 
     Function that splits nanopolish file into `N_FILES` files.
@@ -15,69 +55,56 @@ function split_nanopolish_file(nano_file::String, n_files::Int64)::Nothing
 
     print_log("Getting read IDs...")
 
-    # Obtain dictionary with all read names
+    # Obtain all read names
     header = ""
-    read_nm_vec = Vector{String}()
+    read_nm_vec = fill("", 200000)
     open(nano_file) do f
+        next_entry = 1
         for line in enumerate(eachline(f))
             # Record and skip header
             if line[1] == 1
                 header =  line[2]
                 continue
             end
-            # Get line info
-            line_vec = split(line[2], "\t")
             # Get ID
-            line_id = line_vec[5]
-            # Add
-            line_id in read_nm_vec || push!(read_nm_vec, line_id)
+            line_id = split(line[2], "\t")[5]
+            # Add if necessary
+            min_ind = max(1, next_entry - 100)
+            ind_eq = findfirst(isequal(line_id), read_nm_vec[min_ind:next_entry])
+            if isnothing(ind_eq)
+                read_nm_vec[next_entry] = line_id
+                mod(next_entry, 1000) == 0 && println(next_entry)
+                next_entry += 1
+            end
         end
     end
     
+    # Remove empty
+    deleteat!(read_nm_vec, read_nm_vec .== "")
+
+    # Remove duplicates
+    read_nm_vec = unique(read_nm_vec)
+
     # Number of reads per file
     base_num = div(length(read_nm_vec), n_files)
     extra_num = mod(length(read_nm_vec), n_files)
     
+    print_log("Permuting reads...")
+
     # Permute order of reads so to not create bias
     permute!(read_nm_vec, sample(1:length(read_nm_vec), length(read_nm_vec);replace=false))
 
     print_log("Randomly assigning read IDs to files...")
 
     # Assign read to each file
-    read_file_ind = []
+    read_file_ind = Vector{Int64}()
     file_bnds = [i * base_num + extra_num for i = 1:n_files]
     @inbounds for i = 1:length(read_nm_vec)
         push!(read_file_ind, findfirst(x -> i <= x, file_bnds))
     end
 
-    # Write each output file
-    for ind_file = 1:n_files
-        # Name of file
-        nth_file = "$(pref).$(ind_file).tsv"
-        print_log("Writing file $(ind_file) out of $(n_files)...")
-        # Write individual file
-        open(nth_file, "w") do io
-            # Add header
-            write(io, "$(header)\n")
-            # Add reads
-            open(nano_file) do f
-                for line in enumerate(eachline(f))
-                    # Skip header
-                    line[1] == 1 && continue
-                    # Get line info
-                    line_vec = split(line[2], "\t")
-                    # Get ID
-                    line_id = line_vec[5]
-                    # Get index of read in permuted vector
-                    read_ind_vec = findfirst(x -> x == line_id, read_nm_vec)
-                    # If read belongs to this file print
-                    if read_file_ind[read_ind_vec] == ind_file
-                        write(io, "$(line[2])\n")
-                    end
-                end
-            end
-        end
-    end
+    # Write output files
+    pmap(x -> pmap_split_nanopolish_file(nano_file, n_files, header, pref, read_file_ind, read_nm_vec, x), 1:n_files)
 
     # Return nothing
     return nothing
