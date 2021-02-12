@@ -2,13 +2,14 @@
 # AIM 3:
 #################################################################################################
 ## Deps
+using CodecZlib
 using StatsPlots
 using Distributions
 using DelimitedFiles
 
 ## Constants
-const gt_dir = "/Users/jordiabante/OneDrive - Johns Hopkins/CpelNano/Data/Simulations/ground_truth/"
-const aim_dir = "/Users/jordiabante/OneDrive - Johns Hopkins/CpelNano/Data/Simulations/Aim-3/"
+const wgbs_dir = "/Users/jordiabante/OneDrive - Johns Hopkins/CpelNano/Data/Real-Data/Aim-3/wgbs/"
+const nano_dir = "/Users/jordiabante/OneDrive - Johns Hopkins/CpelNano/Data/Real-Data/Aim-3/nanopore/"
 
 ## Default attributes
 default(titlefont=(14, "arial"),guidefont=(16, "arial"),tickfont=(12, "arial"))
@@ -107,8 +108,8 @@ end
 function plt_params_scatter()
 
     # Files
-    gt_mod_file = "$(gt_dir)/GM12878_wgbs_cpelnano_theta_aug.txt.gz"
-    nano_file = "$(aim_dir)/cpelnano/gm12878_chr22_cpelnano_theta.txt.gz"
+    gt_mod_file = "$(wgbs_dir)/GM12878_wgbs_cpelnano_theta.txt.gz"
+    nano_file = "$(nano_dir)/gm12878_chr22_cpelnano_theta.txt.gz"
     
     # Params
     wgbs_sts, wgbs_params = read_in_model_file(gt_mod_file)
@@ -129,8 +130,8 @@ function plt_params_scatter()
     p_c = plot(wgbs_params[:,3],nano_params[:,3],seriestype=:scatter,xlabel=xlab,ylabel=ylab,
         markersize=0.2,markeralpha=0.1,xlim=(-20.0, 20.0),ylim=(-20.0, 20.0),label="",title="c");
     plot(p_a, p_b, p_c, layout=(3, 1), size=(500, 800))
-    savefig("$(aim_dir)/Scatter-Params-Aim-3.pdf")
-    savefig("$(aim_dir)/Scatter-Params-Aim-3.png")
+    savefig("$(nano_dir)/Scatter-Params-Aim-3.pdf")
+    savefig("$(nano_dir)/Scatter-Params-Aim-3.png")
 
     # Return nothing
     return nothing
@@ -139,16 +140,16 @@ end
 function plt_exp_scatter()
 
     # Ground-truth quantities
-    gt_exx_file = "$(gt_dir)/GM12878_wgbs_cpelnano_theta_aug_exx.txt.gz"
-    gt_ex_file = "$(gt_dir)/GM12878_wgbs_cpelnano_theta_aug_ex.txt.gz"
+    gt_ex_file = "$(wgbs_dir)/GM12878_wgbs_cpelnano_theta_ex.txt.gz"
+    gt_exx_file = "$(wgbs_dir)/GM12878_wgbs_cpelnano_theta_exx.txt.gz"
     gt_ex_sts, gt_ex = read_in_ex_file(gt_ex_file)
     gt_exx_sts, gt_exx = read_in_exx_file(gt_exx_file)
     gt_ey = 0.5 .* (gt_ex .+ 1.0)
     gt_eyy = comp_eyy(gt_ex_sts, gt_ex, gt_exx_sts, gt_exx)
 
     # Estimated quantities
-    ex_file = "$(aim_dir)/cpelnano/gm12878_chr22_cpelnano_ex.txt.gz"
-    exx_file = "$(aim_dir)/cpelnano/gm12878_chr22_cpelnano_exx.txt.gz"
+    ex_file = "$(nano_dir)/gm12878_chr22_cpelnano_ex.txt.gz"
+    exx_file = "$(nano_dir)/gm12878_chr22_cpelnano_exx.txt.gz"
     ex_sts, ex = read_in_ex_file(ex_file)
     exx_sts, exx = read_in_exx_file(exx_file)
     ey = 0.5 .* (ex .+ 1.0)
@@ -168,12 +169,14 @@ function plt_exp_scatter()
     xlab = "Fine-grain (WGBS)"
     ylab = "Coarse-grain (Nanopore)"
     p_ex = plot(gt_ey,ey,seriestype=:scatter,xlabel=xlab,ylabel=ylab,markersize=0.2,
-        markeralpha=0.1,xlim=(0.0, 1.0),ylim=(0.0, 1.0),label="",title="E[X]");
+        markeralpha=0.1,xlim=(0.0, 1.0),ylim=(0.0, 1.0),label="",
+        title="E[X] (\\rho=$(round(cor(gt_ey, ey);digits=2)))");
     p_exx = plot(gt_eyy,eyy,seriestype=:scatter,xlabel=xlab,ylabel=ylab,markersize=0.2,
-        markeralpha=0.1,xlim=(0.0, 1.0),ylim=(0.0, 1.0),label="",title="E[XX]");
+        markeralpha=0.1,xlim=(0.0, 1.0),ylim=(0.0, 1.0),label="",
+        title="E[XX] (\\rho=$(round(cor(gt_eyy, eyy);digits=2)))");
     plot(p_ex, p_exx, layout=(2, 1), size=(500, 600))
-    savefig("$(aim_dir)/Scatter-Exp-Aim-3.pdf")
-    savefig("$(aim_dir)/Scatter-Exp-Aim-3.png")
+    savefig("$(nano_dir)/Scatter-Exp-Aim-3.pdf")
+    savefig("$(nano_dir)/Scatter-Exp-Aim-3.png")
 
     # Return nothing
     return nothing
