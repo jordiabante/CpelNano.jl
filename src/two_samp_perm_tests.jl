@@ -105,6 +105,10 @@ function pmap_diff_two_samp_comp(mod_s1::RegStruct, mod_s2::RegStruct, nano_s1::
     get_calls!(mod_s1, nano_s1, config)
     get_calls!(mod_s2, nano_s2, config)
     
+    # Number of reads
+    n_rds_s1 = length(mod_s1.calls)
+    n_rds_s2 = length(mod_s2.calls)
+
     # Observed statistics
     tmml_obs = abs.(mod_s1.mml - mod_s2.mml)
     tnme_obs = abs.(mod_s1.nme - mod_s2.nme)
@@ -116,15 +120,16 @@ function pmap_diff_two_samp_comp(mod_s1::RegStruct, mod_s2::RegStruct, nano_s1::
     tcmd_pvals = fill(NaN, length(tcmd_obs))
 
     # Compute number of possible randomizations
-    L = binomial(length(mod_s1.calls) + length(mod_s2.calls), length(mod_s1.calls))
+    L = binomial(BigInt(n_rds_s1 +n_rds_s2), BigInt(n_rds_s1))
+
+    # Create iteratable object with all combinations
+    comb_iter = combinations(1:n_rds_s1 + n_rds_s2, n_rds_s1)
 
     # If enough permutations
     if L > 20
         
         #  Check if exact test
         exact = L < LMAX_TWO_SAMP
-
-        ## Retrieve region calls
         
         # Go back to group scale
         get_grp_info!(mod_s1, fa_rec, config.min_grp_dist)
@@ -134,19 +139,15 @@ function pmap_diff_two_samp_comp(mod_s1::RegStruct, mod_s2::RegStruct, nano_s1::
         calls_s1 = deepcopy(mod_s1.calls)
         calls_s2 = deepcopy(mod_s2.calls)
 
-        # Create iteratable object with all combinations
-        comb_iter = combinations(1:(length(calls_s1) + length(calls_s2)), length(calls_s1))
-
-        # Get sample label combinations to use
-        comb_iter_used = []
+        # Get read combinations to use
         if exact
             # Use all sample assignments
             comb_iter_used = comb_iter
         else
-            # Use Lmax group assignments
-            ind_subset = rand(1:L, LMAX_TWO_SAMP)
-            @inbounds for (ind, comb) in enumerate(comb_iter)
-                (ind in ind_subset) && push!(comb_iter_used, comb)
+            # Sample assignments to group 1
+            comb_iter_used = fill(Vector{Int64}(),LMAX_TWO_SAMP)
+            @inbounds for i=1:LMAX_TWO_SAMP
+                comb_iter_used[i] = sort!(StatsBase.sample(1:(n_rds_s1+n_rds_s2),n_rds_s1;replace=false))
             end
         end
 
