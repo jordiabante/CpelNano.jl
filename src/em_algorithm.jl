@@ -215,11 +215,13 @@ function comp_Q(rs::RegStruct,ϕ::Vector{Float64})::Float64
     uL = CpelNano.get_log_u(αs[end])
     Ws = [CpelNano.get_log_W(αs[l],αs[l+1],βs[l]) for l=1:length(βs)]
 
-    # Add - m⋅log[Z(ϕ)]
+    # Add -m⋅log[Z(ϕ)]
     Q -= rs.m * CpelNano.get_log_Z(u1,uL,Ws)
 
     # Add observational part
-    @inbounds for m=1:rs.m
+    Q_obs = 0.0
+    m_used = min(rs.m,100)
+    @inbounds for m=1:m_used
 
         # Get m-th observation
         obs = rs.calls[m]
@@ -233,18 +235,14 @@ function comp_Q(rs::RegStruct,ϕ::Vector{Float64})::Float64
 
         # Get Zc
         Zc = get_log_Zc(u1,uL,Ws)
-        # print_log("Zc: $(Zc)")
 
         # Scale Ws for numerical stability
-        Q += sum(get_Ec_logpyx_log(u1,uL,Ws,Zc,obs))
+        Q_obs += sum(get_Ec_logpyx_log(u1,uL,Ws,Zc,obs))
         
     end
 
     # Return value
-    rtrn_Q = Q>0 ? log(Q)/rs.m : -Inf
-
-    # Return value
-    return rtrn_Q
+    return Q/rs.m + Q_obs/m_used
 
 end
 """
