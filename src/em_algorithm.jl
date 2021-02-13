@@ -217,7 +217,6 @@ function comp_Q(rs::RegStruct,ϕ::Vector{Float64})::Float64
 
     # Add - m⋅log[Z(ϕ)]
     Q -= rs.m * CpelNano.get_log_Z(u1,uL,Ws)
-    # print_log("Q before: $(Q)")
 
     # Add observational part
     @inbounds for m=1:rs.m
@@ -240,11 +239,12 @@ function comp_Q(rs::RegStruct,ϕ::Vector{Float64})::Float64
         Q += sum(get_Ec_logpyx_log(u1,uL,Ws,Zc,obs))
         
     end
-    # print_log("Q after: $(Q)")
-    # readline()
 
     # Return value
-    return log(Q)/rs.m
+    rtrn_Q = Q>0 ? log(Q)/rs.m : -Inf
+
+    # Return value
+    return rtrn_Q
 
 end
 """
