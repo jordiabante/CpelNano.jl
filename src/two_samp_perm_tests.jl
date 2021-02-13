@@ -74,8 +74,8 @@ function pmap_two_samp_null_stats(rs_ref::RegStruct, calls_s1::Vector{Vector{Met
     get_stat_sums!(aux_rs_s2, config)
 
     # Compute stats
-    tmml = abs.(aux_rs_s1.mml - aux_rs_s2.mml)
-    tnme = abs.(aux_rs_s1.nme - aux_rs_s2.nme)
+    tmml = aux_rs_s1.mml - aux_rs_s2.mml
+    tnme = aux_rs_s1.nme - aux_rs_s2.nme
     tcmd = comp_cmd(aux_rs_s1, aux_rs_s2)
     config.verbose && print_log("tmml=$(tmml[1]); tnme=$(tnme[1]); tcmd=$(tcmd[1])")
 
@@ -110,8 +110,8 @@ function pmap_diff_two_samp_comp(mod_s1::RegStruct, mod_s2::RegStruct, nano_s1::
     n_rds_s2 = length(mod_s2.calls)
 
     # Observed statistics
-    tmml_obs = abs.(mod_s1.mml - mod_s2.mml)
-    tnme_obs = abs.(mod_s1.nme - mod_s2.nme)
+    tmml_obs = mod_s1.mml - mod_s2.mml
+    tnme_obs = mod_s1.nme - mod_s2.nme
     tcmd_obs = comp_cmd(mod_s1, mod_s2)
 
     # Init p-values
