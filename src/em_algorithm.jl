@@ -208,7 +208,7 @@ function comp_Q(rs::RegStruct,ϕ::Vector{Float64})::Float64
     ES = get_ess(map_out,rs)
 
     # Add <ϕ,E[S]>
-    Q = dot(ϕ,ES)
+    Q = rs.m * dot(ϕ,ES)
 
     # Matrices
     u1 = CpelNano.get_log_u(αs[1])
@@ -244,7 +244,7 @@ function comp_Q(rs::RegStruct,ϕ::Vector{Float64})::Float64
     # readline()
 
     # Return value
-    return Q/(rs.L*rs.m)
+    return log(Q)/rs.m
 
 end
 """
@@ -256,7 +256,7 @@ end
     # Examples
     ```julia-repl
     julia> M = 10; L = 10; αs = fill(0.0,L); βs = fill(0.0,L-1);
-    julia> pobs = 1.0; μ_m = 40.0; σ_m = 2.0; μ_u = 100.0; σ_u = 2.0;
+    julia> pobs = 1.0; μ_m = 2.0; σ_m = 2.0; μ_u = -2.0; σ_u = 2.0;
     julia> reg_dat = CpelNano.cpel_samp_ont(M,αs,βs,pobs,μ_m,σ_m,μ_u,σ_u);
     julia> ϕhat,Q = CpelNano.em_inst(reg_dat,Float64[],CpelNano.CpelNanoConfig())
     ([0.5210509995207954, 0.6242225806898237, 0.05607186596907174, 0.1085379770548646], -0.26316332446017654)
