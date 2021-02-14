@@ -798,7 +798,10 @@ function get_Ec_logpyx_log(logu1::Vector{Float64},loguL::Vector{Float64},logWs::
     log_pyxs = zeros(length(call_m))
     @inbounds for l=1:(length(logWs)+1)
         call_m[l].obs || continue
-        logD = log.(max.([call_m[l].log_pyx_u+250.0 0.0; 0.0 call_m[l].log_pyx_m+250.0],1.0))
+        min_logpyx = min(call_m[l].log_pyx_u,call_m[l].log_pyx_m) - 1.0 - eps()
+        # println(min_logpyx)
+        # logD = log.(max.([call_m[l].log_pyx_u+250.0 0.0; 0.0 call_m[l].log_pyx_m+250.0],1.0))
+        logD = log.([call_m[l].log_pyx_u-min_logpyx 0.0; 0.0 call_m[l].log_pyx_m-min_logpyx])
         if l==1
             log_DWs = mult_log_mats(vcat([logD],logWs))
             log_u1DWs = log_vec_mat_mult(logu1,log_DWs)
@@ -812,11 +815,57 @@ function get_Ec_logpyx_log(logu1::Vector{Float64},loguL::Vector{Float64},logWs::
             log_u1WsDWs = log_vec_mat_mult(logu1,log_WsDWs)
             log_pyxs[l] = log_vec_vec_mult(log_u1WsDWs,loguL)
         end
-        log_pyxs[l] = exp(log_pyxs[l] - logZc) - 250.0
+        log_pyxs[l] = exp(log_pyxs[l] - logZc) - min_logpyx
     end
 
     # Return E[log p(y|x)|ỹ]
     return log_pyxs
+
+end
+"""
+
+    `get_logpy_lgtrck(log_u1,log_uN,log_Ws,log_Z,obs)`
+    
+    Computes log p(y1,...,yL) using the transfer matrix method.
+    
+    # Examples
+    ```julia-repl
+    julia> L = 10; αs = fill(-1.0,L); βs = fill(1.0,L-1);
+    julia> obs = fill(CpelNano.MethCallCpgGrp(-105.0,-95.0),L);
+    julia> logu1 = CpelNano.get_log_u(αs[1]); 
+    julia> loguL = CpelNano.get_log_u(αs[end]);
+    julia> logWs = [CpelNano.get_log_W(αs[l],αs[l+1],βs[l]) for l=1:(L-1)];
+    julia> logZc = CpelNano.get_log_Z(logu1,loguL,logWs);
+    julia> CpelNano.get_logpy_lgtrck(logu1,loguL,logWs,logZ,obs)
+    
+    ```
+"""
+function get_logpy_lgtrck(logu1::Vector{Float64},loguL::Vector{Float64},logWs::Vector{Array{Float64,2}},logZ::Float64,call_m::Vector{MethCallCpgGrp})::Float64
+
+    # Compute log p(y)
+    log_mats = fill(0.0,(2,2))
+    @inbounds for l=1:length(logWs)
+        if call_m[l].obs
+            logD = [call_m[l].log_pyx_u -Inf; -Inf call_m[l].log_pyx_m]
+            log_DWs = mult_log_mats(vcat([logD],[logWs[l]]))
+            log_mats = l==1 ? log_DWs : mult_log_mats(vcat([log_mats],[log_DWs]))
+        else
+            log_mats = l==1 ? logWs[l] : mult_log_mats(vcat([log_mats],[logWs[l]]))
+        end
+    end
+
+    # Take care of last group
+    if call_m[end].obs
+        logD = [call_m[end].log_pyx_u -Inf; -Inf call_m[end].log_pyx_m]
+        log_mats = mult_log_mats(vcat([log_mats],[logD]))
+    end
+
+    # Compute
+    log_mats = log_vec_mat_mult(logu1,log_mats)
+    log_mats = log_vec_vec_mult(log_mats,loguL)
+
+    # Return log p(y)
+    return log_mats-logZ
 
 end
 """

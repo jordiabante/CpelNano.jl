@@ -246,6 +246,47 @@ function comp_Q(rs::RegStruct,ϕ::Vector{Float64})::Float64
 
 end
 """
+    `comp_ave_log_py(REG_ST,ϕ)`
+
+    Function that computes log p(y).
+
+    # Examples
+    ```julia-repl
+    julia> M = 50; L = 80; αs = fill(0.0,L); βs = fill(0.0,L-1);
+    julia> pobs = 1.0; μ_m = 40.0; σ_m = 2.0; μ_u = 80.0; σ_u = 2.0;
+    julia> rs = CpelNano.cpel_samp_ont(M,αs,βs,pobs,μ_m,σ_m,μ_u,σ_u);
+    julia> rs.L = L; rs.Nl = fill(5.0,rs.L); rs.ρl = fill(0.1,rs.L); rs.dl = fill(10.0,rs.L-1); 
+    julia> CpelNano.comp_ave_log_py(rs,zeros(3))
+    -2.8009282290116913
+    ```
+"""
+function comp_ave_log_py(rs::RegStruct,ϕ::Vector{Float64})::Float64
+    
+    # Get αs & βs
+    αs,βs = get_αβ_from_ϕ(ϕ,rs)
+
+    # Matrices
+    logu1 = CpelNano.get_log_u(αs[1])
+    loguL = CpelNano.get_log_u(αs[end])
+    logWs = [CpelNano.get_log_W(αs[l],αs[l+1],βs[l]) for l=1:length(βs)]
+
+    # Get log Z
+    logZ = CpelNano.get_log_Z(logu1,loguL,logWs)
+
+    # Add observational part
+    log_py = 0.0
+    @inbounds for m=1:rs.m
+
+        # Add term
+        log_py += get_logpy_lgtrck(logu1,loguL,logWs,logZ,rs.calls[m])
+        
+    end
+
+    # Return
+    return log_py/rs.m
+
+end
+"""
 
     `em_inst(data,ϕ0,config)`
     
@@ -269,7 +310,8 @@ function em_inst(rs::RegStruct,ϕ0::Vector{Float64},config::CpelNanoConfig)::Tup
     max_iters_hit = false
 
     config.verbose && print_log("Starting EM algorithm instance...")
-    config.verbose && print_log("ϕt=$(ϕt); Q(ϕ)=$(comp_Q(rs,ϕt))")
+    config.verbose && print_log("ϕt=$(ϕt); log[p(y)]=$(comp_ave_log_py(rs,ϕt))")
+    # config.verbose && print_log("ϕt=$(ϕt); Q(ϕ)=$(comp_Q(rs,ϕt)); log(py)=$(comp_ave_log_py(rs,ϕt))")
 
     # Iterate
     while !conv && !max_iters_hit
@@ -278,7 +320,8 @@ function em_inst(rs::RegStruct,ϕ0::Vector{Float64},config::CpelNanoConfig)::Tup
         ϕtp1 = em_iter(ϕt,rs)
         
         # Print out Q
-        config.verbose && print_log("ϕtp1=$(ϕtp1); Q(ϕ)=$(comp_Q(rs,ϕtp1))")
+        config.verbose && print_log("ϕtp1=$(ϕtp1); log[p(y)]=$(comp_ave_log_py(rs,ϕtp1))")
+        # config.verbose && print_log("ϕtp1=$(ϕtp1); Q(ϕ)=$(comp_Q(rs,ϕtp1)); log(py)=$(comp_ave_log_py(rs,ϕtp1))")
 
         # Check for convergence
         conv = conv_check(ϕt,ϕtp1)
@@ -298,7 +341,8 @@ function em_inst(rs::RegStruct,ϕ0::Vector{Float64},config::CpelNanoConfig)::Tup
     conv = conv && i>2
 
     # Get final pair
-    Q = conv ? comp_Q(rs,ϕt) : -Inf
+    Q = conv ? comp_ave_log_py(rs,ϕt) : -Inf
+    # Q = conv ? comp_Q(rs,ϕt) : -Inf
 
     # Return pair (ϕ,Q)
     return ϕt,Q
@@ -335,7 +379,8 @@ function get_ϕhat!(rs::RegStruct,config::CpelNanoConfig)::Nothing
 
     # Choose ϕ with maximum expected loglike
     ϕhat,Qhat = pick_ϕ(em_out)
-    config.verbose && print_log("Converged to Q=$(Qhat) and ϕ̂=$(ϕhat).")
+    config.verbose && print_log("Converged to log[p(y)]=$(Qhat) and ϕ̂=$(ϕhat).")
+    # config.verbose && print_log("Converged to Q=$(Qhat) and ϕ̂=$(ϕhat).")
 
     # Set ϕhat
     rs.ϕhat = Qhat>-Inf ? ϕhat : Vector{Float64}()

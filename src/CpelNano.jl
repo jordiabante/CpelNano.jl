@@ -48,7 +48,7 @@ const logD3 = log.([2.0 0.0; 0.0 3.0])
 
 # Hypthesis Testing
 const LMAX = 1000
-const LMAX_TWO_SAMP = 250
+const LMAX_TWO_SAMP = 100
 
 ###################################################################################################
 # SOURCE CODE
