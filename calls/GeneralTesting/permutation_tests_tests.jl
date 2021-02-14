@@ -116,9 +116,9 @@ mod_path_s2 = "examples/two_samp_example/cpelnano/full_example_mod_nse_true_thet
 config = CpelNano.CpelNanoConfig()
 config.out_dir = "examples/two_samp_example/tests/"
 config.out_prefix = "cpelnano_two_samp"
-config.verbose = false
-config.max_em_init = 4
 config.max_em_iters = 25
+config.max_em_init = 4
+config.verbose = true
 
 # Differential analysis
 CpelNano.diff_two_samp_comp(mod_path_s1,mod_path_s2,nano_s1,nano_s2,fasta,config)

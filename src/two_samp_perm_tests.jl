@@ -123,7 +123,7 @@ function pmap_diff_two_samp_comp(mod_s1::RegStruct, mod_s2::RegStruct, nano_s1::
     L = binomial(BigInt(n_rds_s1 +n_rds_s2), BigInt(n_rds_s1))
 
     # Create iteratable object with all combinations
-    comb_iter = combinations(1:n_rds_s1 + n_rds_s2, n_rds_s1)
+    comb_iter = combinations(1:(n_rds_s1 + n_rds_s2), n_rds_s1)
 
     # If enough permutations
     if L > 20
