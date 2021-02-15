@@ -35,7 +35,7 @@ reg_data.cpg_grps
 reg_data.L
 
 #####################################################################################################
-# GENOME SUBREGIONS
+# ANALYSIS REGIONS (aka SUBREGIONS)
 #####################################################################################################
 ## Function used in data analysis
 
@@ -87,6 +87,21 @@ config = CpelNano.CpelNanoConfig(); config.out_dir = "/Users/jordiabante/Desktop
 
 # Get histogram of size
 CpelNano.estimation_region_table(fasta,config)
+
+#####################################################################################################
+# Produce estimation region genomic info
+#####################################################################################################
+using CpelNano
+
+# IO
+dataDir = "$(dirname(dirname(pathof(CpelNano))))/examples/full_example/reference/"
+fasta = "$(dataDir)/hg38_chr17_43023997_43145780.fa"
+
+# Partition evenly spaced CpG sites
+config = CpelNano.CpelNanoConfig(); config.out_dir = "/Users/jordiabante/Desktop/"
+
+# Get histogram of size
+CpelNano.get_estimation_region_info(fasta,"hg38_dna",1000:2000,config)
 
 #####################################################################################################
 # Produce histogram of group lengths

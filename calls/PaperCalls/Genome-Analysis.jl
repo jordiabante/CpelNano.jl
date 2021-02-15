@@ -2,6 +2,7 @@
 using Plots
 using Random
 using StatsBase
+using Statistics
 using StatsPlots
 using KernelDensity
 using DelimitedFiles
@@ -62,6 +63,9 @@ data_dir = "/Users/jordiabante/OneDrive - Johns Hopkins/CpelNano/Data/Real-Data/
 # Read in data
 ar_data = readdlm("$(data_dir)/estimation_region_table_3kb.txt")
 
+# Clean data
+ar_data = hcat(ar_data[:,3] - ar_data[:,2] .+ 1, ar_data[:,3], ar_data[:,4])
+
 # 1. Total number of R regions in the human genome that contain at least 1 CG-group: 919,321
 sum(ar_data[:,3] .> 0.0)
 
@@ -98,6 +102,9 @@ data_dir = "/Users/jordiabante/OneDrive - Johns Hopkins/CpelNano/Data/Real-Data/
 # Read in analysis region data
 ar_data = readdlm("$(data_dir)/estimation_region_table_3kb.txt")
 
+# Clean data
+ar_data = hcat(ar_data[:,3] - ar_data[:,2] .+ 1, ar_data[:,3], ar_data[:,4])
+
 # Read in group histogram data
 grp_len_data = readdlm("$(data_dir)/len_group_histogram.txt")[:,1]
 grp_len_data = grp_len_data / sum(grp_len_data)
@@ -111,21 +118,45 @@ Random.seed!(123);
 ran_samp = sample(1:size(ar_data)[1], 10000;replace=false);
 
 ## Plot histogram of group size (bp)
-p1 = plot(11:40, grp_len_data[11:40] * 100, seriestype=:bar, xlab="CpG Group size (bp)", ylab="Percentage(%)", label="", xlim=(10, 40), ylim=(0, 100));
+p1 = plot(11:40, grp_len_data[11:40] * 100, seriestype=:bar, xlab="CpG Group size (bp)", 
+    ylab="Percentage(%)", label="", xlim=(10, 40), ylim=(0, 100));
 
 ## Plot histogram of group size (#CGs)
-p2 = plot(1:100, num_cpg_per_grp_data[1:100] * 100, seriestype=:bar, xlab="Number of CpGs in groups", ylab="Percentage(%)", label="", xlim=(0, 20), ylim=(0, 100));
+p2 = plot(1:100, num_cpg_per_grp_data[1:100] * 100, seriestype=:bar, xlab="Number of CpGs in groups", 
+    ylab="Percentage(%)", label="", xlim=(0, 20), ylim=(0, 100));
 
 ## Density plot CpG sites & CpG groups
 ind_nonzero = ar_data[:,2] .> 0.0
-p3 = plot(ar_data[ind_nonzero,2], seriestype=:density, label="# CpG sites", xlabel="# CpG sites/groups in analysis regions", ylabel="Density");
+p3 = plot(ar_data[ind_nonzero,2], seriestype=:density, label="# CpG sites", 
+    xlabel="# CpG sites/groups in analysis regions", ylabel="Density");
 plot!(p3,ar_data[ind_nonzero,3],seriestype=:density,label="# CpG groups");
 
 ## Plot CpG sites vs CpG groups
-p4 = plot(ar_data[ran_samp,2], ar_data[ran_samp,3], seriestype=:scatter, xlab="# CpG sites in analysis region", ylab="# CpG groups in analysis region", label="", alpha=0.25);
+p4 = plot(ar_data[ran_samp,2], ar_data[ran_samp,3], seriestype=:scatter, 
+    xlab="# CpG sites in analysis region", ylab="# CpG groups in analysis region", label="", alpha=0.25);
 plot!(p4,1:400,1:400,label="");
 
 # Collage
 p = plot(p1, p2, p3, p4, layout=(2, 2), size=(1000, 750))
 
 savefig(p,"$(data_dir)/Analysis-Region-3kb-hg38.pdf")
+
+#####################################################################################################
+# Representative estimation region
+#####################################################################################################
+
+# Data dir
+data_dir = "/Users/jordiabante/OneDrive - Johns Hopkins/CpelNano/Data/Real-Data/Genome-Properties-hg38/"
+
+# Read in analysis region data
+ar_data = readdlm("$(data_dir)/estimation_region_table_3kb.txt")
+
+# Median number of CpG sites among analyzed regions
+ar_data = ar_data[ar_data[:,4] .> 9,:]
+med_num_cpgs = median(ar_data[:,4])
+med_num_cg_grps = median(ar_data[:,5])
+
+# Randomly choose region with median number of CpG sites
+Random.seed!(123)
+ar_data = ar_data[ar_data[:,4] .== med_num_cpgs,:]
+chosen_region = ar_data[rand(1:size(ar_data)[1]),:]

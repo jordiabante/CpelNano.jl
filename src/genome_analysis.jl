@@ -686,7 +686,7 @@ function subregion_table(fasta::String,config::CpelNanoConfig)::Nothing
 
 end
 ###################################################################################################################
-# ANALYSIS REGION ANALYSIS
+# ESTIMATION REGION ANALYSIS
 ###################################################################################################################
 """
     `pmap_estimation_region_analysis(REG_INT,CHR,FA_REC,CONFIG)`
@@ -729,7 +729,7 @@ end
 
     # Examples
     ```julia-repl
-    julia> CpelNano.estimation_region_table(nano,fasta,config)
+    julia> CpelNano.estimation_region_table(fasta,config)
     ```
 """
 function estimation_region_table(fasta::String,config::CpelNanoConfig)::Nothing
@@ -772,6 +772,55 @@ function estimation_region_table(fasta::String,config::CpelNanoConfig)::Nothing
             writedlm(io,out_pmap)
         end
 
+    end
+
+    # Return nothing
+    return nothing
+
+end
+"""
+    `get_estimation_region_info(FASTA,CHR,CHR_INT,CONFIG)`
+
+    Function that stores a tabulated table with columns 
+
+        | Position | Group index | Density | Distance |
+
+    # Examples
+    ```julia-repl
+    julia> CpelNano.get_estimation_region_info(fasta,chr,chr_int,config)
+    ```
+"""
+function get_estimation_region_info(fasta::String,chr::String,chr_int::UnitRange{Int64},config::CpelNanoConfig)::Nothing
+
+    # Create output directory if not existant
+    isdir(config.out_dir) || mkdir(config.out_dir)
+
+    # Get FASTA record
+    fa_reader = open(FASTA.Reader,fasta,index=fasta*".fai")
+    fa_rec = fa_reader[chr]
+    close(fa_reader)
+    
+    # Initizalize empty region structure
+    rs = RegStruct()
+
+    # Store chromosomal info (1-based)
+    rs.chr = chr
+    rs.chrst = minimum(chr_int)
+    rs.chrend = maximum(chr_int)
+
+    # Get CpG site information (1-based)
+    get_grp_info!(rs, fa_rec, config.min_grp_dist)
+
+    # Generate output matrix
+    ρn = rs.ρn
+    dn = vcat(rs.dn,0)
+    cpg_pos = rs.cpg_pos
+    out_mat = [cpg_pos ρn dn]
+
+    # Write histogram
+    out_file = "$(config.out_dir)/estimation_region_chr_$(chr)_$(minimum(chr_int))_$(maximum(chr_int)).txt"
+    open(out_file,"a") do io
+        writedlm(io,out_mat)
     end
 
     # Return nothing
