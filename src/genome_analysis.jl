@@ -691,7 +691,7 @@ end
 """
     `pmap_estimation_region_analysis(REG_INT,FA_REC,CONFIG)`
 
-    Function that returns a vector with analysis region size, number of CpG sites, and number of CpG groups.
+    Function that returns a vector with analysis start and end, number of CpG sites, and number of CpG groups.
 
     # Examples
     ```julia-repl
@@ -701,8 +701,9 @@ end
 function pmap_estimation_region_analysis(reg_int::UnitRange{Int64},fa_rec::FASTA.Record,min_grp_dist::Int64)::Vector{Int64}
 
     # Init
-    out_vec = fill(0.0,3)
-    out_vec[1] = Float64(length(reg_int))
+    out_vec = fill(0.0,4)
+    out_vec[1] = Float64(minimum(reg_int))
+    out_vec[2] = Float64(minimum(reg_int))
 
     # Get position CpG sites
     dna_seq = FASTA.sequence(String,fa_rec,reg_int)
@@ -710,10 +711,10 @@ function pmap_estimation_region_analysis(reg_int::UnitRange{Int64},fa_rec::FASTA
     length(cpg_pos)>0 || return out_vec
     
     # Store CpG sites
-    out_vec[2] = Float64(length(cpg_pos))
+    out_vec[3] = Float64(length(cpg_pos))
     
     # Get groups 
-    out_vec[3] = Float64(length(get_grps_from_cgs(cpg_pos,min_grp_dist)))
+    out_vec[4] = Float64(length(get_grps_from_cgs(cpg_pos,min_grp_dist)))
     
     # Return vector
     return out_vec
