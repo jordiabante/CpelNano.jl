@@ -689,16 +689,16 @@ end
 # ANALYSIS REGION ANALYSIS
 ###################################################################################################################
 """
-    `pmap_estimation_region_analysis(CHR,REG_INT,FA_REC,CONFIG)`
+    `pmap_estimation_region_analysis(REG_INT,CHR,FA_REC,CONFIG)`
 
     Function that returns a vector with analysis start and end, number of CpG sites, and number of CpG groups.
 
     # Examples
     ```julia-repl
-    julia> CpelNano.pmap_estimation_region_analysis(chr,reg_int,fa_rec,config)
+    julia> CpelNano.pmap_estimation_region_analysis(reg_int,chr,fa_rec,config)
     ```
 """
-function pmap_estimation_region_analysis(chr::String,reg_int::UnitRange{Int64},fa_rec::FASTA.Record,min_grp_dist::Int64)::Vector{String}
+function pmap_estimation_region_analysis(reg_int::UnitRange{Int64},chr::String,fa_rec::FASTA.Record,min_grp_dist::Int64)::Vector{String}
 
     # Init
     out_vec = fill(missing,5)
