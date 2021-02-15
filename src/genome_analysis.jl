@@ -703,7 +703,7 @@ function pmap_estimation_region_analysis(reg_int::UnitRange{Int64},fa_rec::FASTA
     # Init
     out_vec = fill(0.0,4)
     out_vec[1] = Float64(minimum(reg_int))
-    out_vec[2] = Float64(minimum(reg_int))
+    out_vec[2] = Float64(maximum(reg_int))
 
     # Get position CpG sites
     dna_seq = FASTA.sequence(String,fa_rec,reg_int)
