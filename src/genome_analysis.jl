@@ -701,7 +701,7 @@ end
 function pmap_estimation_region_analysis(reg_int::UnitRange{Int64},chr::String,fa_rec::FASTA.Record,min_grp_dist::Int64)::Vector{String}
 
     # Init
-    out_vec = fill(missing,5)
+    out_vec = fill("",5)
     out_vec[1] = chr
     out_vec[2] = "$(minimum(reg_int))"
     out_vec[3] = "$(maximum(reg_int))"
@@ -765,7 +765,7 @@ function estimation_region_table(fasta::String,config::CpelNanoConfig)::Nothing
         out_pmap = pmap(x->pmap_estimation_region_analysis(x,chr,fa_rec,config.min_grp_dist),chr_part)
 
         # Produce a matrix
-        out_pmap = transpose(hcat(out_pmap...))
+        out_pmap = permutedims(hcat(out_pmap...))
 
         # Write histogram
         print_log("Writing results from chr $(chr) ...")

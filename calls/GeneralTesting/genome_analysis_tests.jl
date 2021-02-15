@@ -21,10 +21,10 @@ CpelNano.get_grps_from_cgs([10,18,26,50,58,66],4)
 # IO
 dataDir = "$(dirname(dirname(pathof(CpelNano))))/examples/full_example/"
 fasta = "$(dataDir)/reference/hg38_chr17_43023997_43145780.fa"
-reg_data = CpelNano.RegStruct(); reg_data.chrst=1; reg_data.chrend=3000; reg_data.chr = "hg38_dna";
+reg_data = CpelNano.RegStruct(); reg_data.chrst = 1; reg_data.chrend = 3000; reg_data.chr = "hg38_dna";
 
 # Get FASTA record for chr
-fa_reader = open(FASTA.Reader,fasta,index=fasta*".fai")
+fa_reader = open(FASTA.Reader, fasta, index=fasta * ".fai")
 fa_rec = fa_reader["hg38_dna"]
 close(fa_reader)
 
@@ -70,7 +70,7 @@ using CpelNano
 
 # CpG density
 dna_seq = "AACGTAACGAA"
-cpg_pos = map(x->getfield(x,:offset),eachmatch(r"[Cc][Gg]",dna_seq))
+cpg_pos = map(x -> getfield(x, :offset), eachmatch(r"[Cc][Gg]", dna_seq))
 CpelNano.get_ρn(dna_seq,cpg_pos;width=3)
 
 #####################################################################################################
@@ -83,7 +83,7 @@ dataDir = "$(dirname(dirname(pathof(CpelNano))))/examples/full_example/reference
 fasta = "$(dataDir)/hg38_chr17_43023997_43145780.fa"
 
 # Partition evenly spaced CpG sites
-config = CpelNano.CpelNanoConfig(); config.out_dir="/Users/jordiabante/Desktop/"
+config = CpelNano.CpelNanoConfig(); config.out_dir = "/Users/jordiabante/Desktop/"
 
 # Get histogram of size
 CpelNano.estimation_region_table(fasta,config)
@@ -98,7 +98,7 @@ dataDir = "$(dirname(dirname(pathof(CpelNano))))/examples/full_example/reference
 fasta = "$(dataDir)/hg38_chr17_43023997_43145780.fa"
 
 # Partition evenly spaced CpG sites
-config = CpelNano.CpelNanoConfig(); config.out_dir="/Users/jordiabante/Desktop/"
+config = CpelNano.CpelNanoConfig(); config.out_dir = "/Users/jordiabante/Desktop/"
 
 # Get histogram of size
 CpelNano.hist_group_length(fasta,config)
@@ -113,7 +113,7 @@ dataDir = "$(dirname(dirname(pathof(CpelNano))))/examples/full_example/reference
 fasta = "$(dataDir)/hg38_chr17_43023997_43145780.fa"
 
 # Partition evenly spaced CpG sites
-config = CpelNano.CpelNanoConfig(); config.out_dir="/Users/jordiabante/Desktop/"
+config = CpelNano.CpelNanoConfig(); config.out_dir = "/Users/jordiabante/Desktop/"
 
 # Get histogram of size
 CpelNano.hist_group_cpg_num(fasta,config)
@@ -131,8 +131,8 @@ fasta = "$(dataDir)/hg38_chr17_43023997_43145780.fa"
 config = CpelNano.CpelNanoConfig(); config.informme_mode = true;
 
 # Get partition respecting CpG groups
-chr_names,chr_sizes = CpelNano.get_genome_info(fasta)
-chr_part = CpelNano.get_informME_chr_part(chr_sizes[1],config)
+chr_names, chr_sizes = CpelNano.get_genome_info(fasta)
+chr_part = CpelNano.get_informME_chr_part(chr_sizes[1], config)
 
 #####################################################################################################
 # Partition of chromosome
@@ -148,7 +148,7 @@ config = CpelNano.CpelNanoConfig(); config.min_grp_dist = 1; config.verbose = tr
 
 # Get partition respecting CpG groups
 chr = "hg38_dna"
-chr_part = CpelNano.get_chr_part(chr,config,fasta)
+chr_part = CpelNano.get_chr_part(chr, config, fasta)
 
 #####################################################################################################
 # Partition in targeted case
@@ -168,4 +168,4 @@ targ_regs = CpelNano.read_bed_reg(config)
 
 # Get chr partition
 chr = "hg38_dna"
-chr_part = CpelNano.get_chr_part(chr,config,fasta,targ_regs[chr])
+chr_part = CpelNano.get_chr_part(chr, config, fasta, targ_regs[chr])
