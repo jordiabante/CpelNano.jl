@@ -709,13 +709,12 @@ function pmap_estimation_region_analysis(reg_int::UnitRange{Int64},chr::String,f
     # Get position CpG sites
     dna_seq = FASTA.sequence(String,fa_rec,reg_int)
     cpg_pos = map(x->getfield(x,:offset),eachmatch(r"[Cc][Gg]",dna_seq)) .+ minimum(reg_int) .- 1
-    length(cpg_pos)>0 || return out_vec
     
     # Store CpG sites
     out_vec[4] = "$(length(cpg_pos))"
     
     # Get groups 
-    out_vec[5] = "$(length(get_grps_from_cgs(cpg_pos,min_grp_dist)))"
+    out_vec[5] = length(cpg_pos)>0 ? "$(length(get_grps_from_cgs(cpg_pos,min_grp_dist)))" : "0"
     
     # Return vector
     return out_vec
