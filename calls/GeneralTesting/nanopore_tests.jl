@@ -14,6 +14,18 @@ nano = "$(dataDir)/nanopolish/full_example_noise2.0_methylation_calls.sorted.tsv
 CpelNano.split_nanopolish_file(nano,5)
 
 #####################################################################################################
+# Get model dictionary nanopolish model file
+#####################################################################################################
+using CpelNano
+
+# IO
+dataDir = "/Users/jordiabante/OneDrive - Johns Hopkins/CpelNano/Data/Real-Data/Nanopolish-Pore-Model/"
+nano = "$(dataDir)/r9.4_450bps.cpg.6mer.template.model"
+
+# Get nanopolish model dictionary
+nano_dic = CpelNano.get_nano_pore_mod(nano)
+
+#####################################################################################################
 # Sample averages nano file
 #####################################################################################################
 using CpelNano

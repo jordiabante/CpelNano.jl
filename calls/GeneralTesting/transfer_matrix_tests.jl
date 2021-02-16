@@ -4,25 +4,25 @@ using LinearAlgebra
 using BenchmarkTools
 
 # Parameters
-L = 300; αs = fill(-1.0,L); βs = fill(0.0,L-1);
+L = 300; αs = fill(-1.0, L); βs = fill(0.0, L - 1);
 
 # Data
-obs = [CpelNano.MethCallCpgGrp(-20.0,0.0) for _ in 1:L];
+obs = [CpelNano.MethCallCpgGrp(-20.0, 0.0) for _ in 1:L];
 
 # Get u's
-u1 = CpelNano.get_uc(αs[1],obs[1]); uN = CpelNano.get_uc(αs[end],obs[end]);
-logu1 = CpelNano.get_log_uc(αs[1],obs[1]); loguL = CpelNano.get_log_uc(αs[end],obs[end]);
+u1 = CpelNano.get_uc(αs[1], obs[1]); uN = CpelNano.get_uc(αs[end], obs[end]);
+logu1 = CpelNano.get_log_uc(αs[1], obs[1]); loguL = CpelNano.get_log_uc(αs[end], obs[end]);
 
 # Get W's
-Ws = [CpelNano.get_Wc(αs[l],αs[l+1],βs[l],obs[l],obs[l+1]) for l=1:(L-1)]
-logWs = [CpelNano.get_log_Wc(αs[l],αs[l+1],βs[l],obs[l],obs[l+1]) for l=1:(L-1)]
+Ws = [CpelNano.get_Wc(αs[l], αs[l + 1], βs[l], obs[l], obs[l + 1]) for l = 1:(L - 1)]
+logWs = [CpelNano.get_log_Wc(αs[l], αs[l + 1], βs[l], obs[l], obs[l + 1]) for l = 1:(L - 1)]
 
 # Scaling
-Ws = UniformScaling(1.0/maximum(maximum.(Ws))) * Ws
+Ws = UniformScaling(1.0 / maximum(maximum.(Ws))) * Ws
 
 # Get Zc
-Zc = CpelNano.get_Zc(u1,uN,Ws)
-logZc = CpelNano.get_log_Zc(logu1,loguL,logWs)
+Zc = CpelNano.get_Zc(u1, uN, Ws)
+logZc = CpelNano.get_log_Zc(logu1, loguL, logWs)
 
 # Ex
 CpelNano.get_Ec_X(u1,uN,Ws,Zc)
@@ -42,22 +42,22 @@ using LinearAlgebra
 using BenchmarkTools
 
 # Parameters
-L = 300; αs = fill(1.0,L); βs = fill(1.0,L-1);
+L = 300; αs = fill(1.0, L); βs = fill(1.0, L - 1);
 
 # Get u's
 u1 = CpelNano.get_u(αs[1]); uL = CpelNano.get_u(αs[end]);
 logu1 = CpelNano.get_log_u(αs[1]); loguL = CpelNano.get_log_u(αs[end]);
 
 # Get W's
-Ws = [CpelNano.get_W(αs[l],αs[l+1],βs[l]) for l=1:length(βs)];
-logWs = [CpelNano.get_log_W(αs[l],αs[l+1],βs[l]) for l=1:length(βs)];
+Ws = [CpelNano.get_W(αs[l], αs[l + 1], βs[l]) for l = 1:length(βs)];
+logWs = [CpelNano.get_log_W(αs[l], αs[l + 1], βs[l]) for l = 1:length(βs)];
 
 # Scaling
-Ws = UniformScaling(1.0/maximum(maximum.(Ws))) * Ws
+Ws = UniformScaling(1.0 / maximum(maximum.(Ws))) * Ws
 
 # Get Z
-Z = CpelNano.get_Z(u1,uL,Ws)
-logZ = CpelNano.get_log_Z(logu1,loguL,logWs)
+Z = CpelNano.get_Z(u1, uL, Ws)
+logZ = CpelNano.get_log_Z(logu1, loguL, logWs)
 
 # E[X]
 CpelNano.get_E_X(u1,uL,Ws,Z)

@@ -11,7 +11,7 @@ function get_ϕs_eff_rng(eff_type, config)
         ϕ1_max = [0.0,0.0,0.0]
         ϕ2_max = [0.0,0.0,5.0]
     elseif eff_type == "cmd" 
-        ϕ1_max = [-1.0,-10.0,2.0]
+        ϕ1_max = [+1.0,+10.0,2.0]
         ϕ2_max = [+1.0,+10.0,2.0]
     else
         CpelNano.print_log("Effect type $(eff_type) type not recognized.)")
@@ -28,8 +28,16 @@ function get_ϕs_eff_rng(eff_type, config)
     while ! all(eff_size_check)
         
         # Scale vector 
-        ϕ1 = eff_perc * ϕ1_max
-        ϕ2 = eff_perc * ϕ2_max
+        if eff_type == "mml"
+            ϕ1 = [eff_perc * ϕ1_max[1],eff_perc * ϕ1_max[2],ϕ1_max[3]]
+            ϕ2 = [eff_perc * ϕ2_max[1],eff_perc * ϕ2_max[2],ϕ2_max[3]]
+        elseif eff_type == "nme"
+            ϕ1 = eff_perc * ϕ1_max
+            ϕ2 = eff_perc * ϕ2_max
+        else
+            ϕ1 = ϕ1_max * ( 1.0 .+ eff_perc)
+            ϕ2 = ϕ2_max / ( 1.0 .+ eff_perc)
+        end
         
         # Baseline struct
         rs_g1 = create_baseline_struct(config)
@@ -43,16 +51,19 @@ function get_ϕs_eff_rng(eff_type, config)
         proc_rep_rs!(rs_g1, config)
         proc_rep_rs!(rs_g2, config)
 
+        # Non-empty analysis regions
+        kp_in = [int != 0:0 for int in rs_g1.nls_rgs.cpg_ind]
+        
         # Effect size
         if eff_type == "mml"
-            eff_size = mean(abs.(rs_g1.mml - rs_g2.mml))
+            eff_size = mean(abs.(rs_g1.mml[kp_in] - rs_g2.mml[kp_in]))
         elseif eff_type == "nme"
-            eff_size = mean(abs.(rs_g1.nme - rs_g2.nme))
+            eff_size = mean(abs.(rs_g1.nme[kp_in] - rs_g2.nme[kp_in]))
         elseif eff_type == "cmd"
-            eff_size = mean(CpelNano.comp_cmd(rs_g1, rs_g2))
+            eff_size = mean(CpelNano.comp_cmd(rs_g1, rs_g2)[kp_in])
         end
         
-        # println("eff_size=$(eff_size)")
+        println("eff_size=$(eff_size)")
 
         # Record vector
         if eff_size >= next_eff_size
@@ -84,20 +95,30 @@ function get_ϕs_eff_rng(eff_type, config)
 end
 @everywhere function create_baseline_struct(config::CpelNano.CpelNanoConfig)
 
-    # Define
+    # Initialize
     rs = CpelNano.RegStruct()
-    rs.chrst = 1
-    rs.chrend = 3000
-    rs.N = 30
-    rs.L = 30
-    rs.Nl = fill(1.0, rs.L)
-    rs.ρl = fill(0.1, rs.L)
-    rs.ρn = fill(0.1, rs.N)
-    rs.dl = fill(100.0, rs.L - 1)
-    rs.dn = fill(100.0, rs.N - 1)
-    rs.cpg_pos = [rs.chrst + 100 * n - 50 for n = 1:rs.N]
-    CpelNano.get_nls_reg_info!(rs, config)
 
+    # Read in file
+    rs_data = readdlm("$(aim_dir)/estimation_region_chr_chr1_42900254_42903250.txt")
+
+    # Get values
+    rs.chrst = 42900254
+    rs.chrend = 42903250
+    rs.cpg_pos = Int64.(rs_data[:,1])
+    rs.ρn = Float64.(rs_data[:,2])
+    rs.dn = Float64.(rs_data[:,3])
+
+    # Get rest of values
+    rs.N = length(rs.cpg_pos)
+    rs.cpg_grps = CpelNano.get_grps_from_cgs(rs.cpg_pos, config.min_grp_dist)
+    rs.Nl = map(grp -> length(grp.cpg_ind), rs.cpg_grps)
+    rs.ρl = CpelNano.get_ρl(rs.ρn, rs.cpg_grps)
+    rs.dl = CpelNano.get_dl(rs.cpg_pos, rs.cpg_grps)
+    rs.L = length(rs.cpg_grps)
+    
+    # Get analysis region info 
+    CpelNano.get_nls_reg_info!(rs, config)
+    
     # Return struct
     return rs
     
@@ -258,7 +279,7 @@ end
 
     # Generate data
     ms_g1, ms_g2 = gen_grp_data(n_grp_reps, ϕ, ϕ, config)
-
+        
     # Estimate parameters
     for rep = 1:n_grp_reps
         proc_rep_rs!(ms_g1[rep], config)

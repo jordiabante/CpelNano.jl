@@ -33,9 +33,9 @@ const log_pyx_wrong_x = -50.0
 const log_pyx_right_x = 0.0 
 
 # Paramater space boundaries
-AMAX = 10.0
-BMAX = 100.0
-CMAX = 20.0
+AMAX = 20.0
+BMAX = 150.0
+CMAX = 50.0
 
 # Transfer Matrix
 const US = UniformScaling(1.0e-1)

@@ -1,3 +1,51 @@
+
+"""
+    `get_nano_pore_mod(NANO_MOD_FILE)`
+
+    Function that stores the signal to noise ratio for each k-mer in a tabulated file with columns
+
+        | Unmethylated k-mer | Signal-to-noise Ratio |
+
+    # Examples
+    ```julia-repl
+    julia> CpelNano.get_nano_pore_mod(nano_mod_file)
+    ```
+"""
+function get_nano_pore_mod(nano_mod_file::String)::Dict{String,NTuple{4,Float64}}
+
+    # Read in model file
+    nano_mod = readdlm(nano_mod_file)
+
+    # Create dictionary
+    nano_dic = Dict{String,NTuple{4,Float64}}()
+    for i = 2:size(nano_mod)[1]
+        kmer = nano_mod[i,1]
+        occursin('C', kmer) || occursin('M', kmer) || continue
+        if occursin('M', kmer)
+            kmer_mod = replace(kmer, "M" => "C")
+            # print_log("kmer: $(kmer) => kmer_mod: $(kmer_mod)")
+            if kmer_mod in keys(nano_dic)
+                μu = nano_dic[kmer_mod][1]
+                σu = nano_dic[kmer_mod][2]
+                nano_dic[kmer_mod] = (μu, σu, nano_mod[i,2], nano_mod[i,3])
+            else
+                nano_dic[kmer_mod] = (NaN, NaN, nano_mod[i,2], nano_mod[i,3])
+            end
+        else
+            if kmer in keys(nano_dic)
+                μm = nano_dic[kmer][3]
+                σm = nano_dic[kmer][4]
+                nano_dic[kmer] = (nano_mod[i,2], nano_mod[i,3], μm, σm)
+            else
+                nano_dic[kmer] = (nano_mod[i,2], nano_mod[i,3], NaN, NaN)
+            end
+        end
+    end
+
+    # Return dictionary
+    return nano_dic
+
+end
 """
     `pmap_split_nanopolish_file(NANO_FILE,N_FILES,HEADER,PREF,READ_FILE_IND,READ_NAME_VEC,IND_FILE)`
 

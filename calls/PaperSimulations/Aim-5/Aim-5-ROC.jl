@@ -2,14 +2,14 @@
 # AIM 5: two-sample comparison performance
 #################################################################################################
 ## Deps
+using StatsPlots
 using Distributed
+using Combinatorics
+using Distributions
+using DelimitedFiles
 @everywhere using Pkg
 @everywhere Pkg.activate("./") # <=
 @everywhere using CpelNano
-using StatsBase
-using StatsPlots
-using Distributions
-using Combinatorics
 
 ## Source code
 root_dir = dirname(dirname(pathof(CpelNano)))
@@ -24,12 +24,12 @@ const blind_friend_col = ["#999999","#E69F00","#56B4E9","#009E73","#F0E442","#00
 # Set up
 @everywhere const M = 5
 @everywhere const POBS = 1.0
-@everywhere const LEVEL_STD_M = 2.0
-@everywhere const LEVEL_STD_U = 2.0
-@everywhere const LEVEL_MEAN_M = 84.0
-@everywhere const LEVEL_MEAN_U = 80.0
-@everywhere const EFF_PERC_RNG = 0.05:0.05:0.25
-@everywhere const LMAX_TWO_SAMP_AIM_5 = 20
+@everywhere const Δ_LEVEL_MEAN = 5.0
+@everywhere const LEVEL_STD_M = 3.0 / sqrt(4000 / 450)
+@everywhere const LEVEL_STD_U = 3.0 / sqrt(4000 / 450)
+@everywhere const LEVEL_MEAN_M = Δ_LEVEL_MEAN / 2.0
+@everywhere const LEVEL_MEAN_U = -Δ_LEVEL_MEAN / 2.0
+@everywhere const EF_PERC_RNG = 0.05:0.05:0.25
 
 ## Default attributes
 default(titlefont=(14, "arial"),guidefont=(16, "arial"),tickfont=(12, "arial"))
