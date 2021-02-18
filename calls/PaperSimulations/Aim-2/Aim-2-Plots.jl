@@ -369,7 +369,7 @@ function plt_params_scatter(cove, sig)
     return nothing
 
 end
-function plt_exp_scatter(cove, sig)
+function plt_exp_heatmap(cove, sig)
 
     # Ground-truth quantities
     gt_exx_file = "$(gt_dir)/GM12878_wgbs_cpelnano_theta_aug_exx.txt.gz"
@@ -400,16 +400,40 @@ function plt_exp_scatter(cove, sig)
     gt_eyy = gt_eyy[wgbs_sts_exx_ind]
     eyy = eyy[exx_sts_ind]
 
-    # Plot scatter
-    xlab = "Fine-grain"
-    ylab = "Coarse-grain"
-    p_ex = plot(gt_ey,ey,seriestype=:scatter,xlabel=xlab,ylabel=ylab,markersize=0.2,
-        markeralpha=0.1,xlim=(0.0, 1.0),ylim=(0.0, 1.0),label="",title="E[X]");
-    p_exx = plot(gt_eyy,eyy,seriestype=:scatter,xlabel=xlab,ylabel=ylab,markersize=0.2,
-        markeralpha=0.1,xlim=(0.0, 1.0),ylim=(0.0, 1.0),label="",title="E[XX]");
-    plot(p_ex, p_exx, layout=(2, 1), size=(500, 600))
-    savefig("$(aim_dir)/Scatter-Exp-cov-$(cove)-s-$(sig)-Aim-2.pdf")
-    savefig("$(aim_dir)/Scatter-Exp-cov-$(cove)-s-$(sig)-Aim-2.png")
+    # Construct matrix
+    res_grid = 0.05
+    axis_rng = collect(0:res_grid:1.0)
+    mat_y = fill(0.0, (length(axis_rng) - 1, length(axis_rng) - 1))
+    mat_yy = fill(0.0, (length(axis_rng) - 1, length(axis_rng) - 1))
+    for i in (length(axis_rng) - 1):-1:1
+        for j in 1:(length(axis_rng) - 1)
+            ind_1 = [axis_rng[i] <= x < axis_rng[i + 1] for x in ey]
+            ind_2 = [axis_rng[j] <= x < axis_rng[j + 1] for x in gt_ey]
+            mat_y[i,j] = sum(ind_1 .& ind_2)
+            ind_1 = [axis_rng[i] <= x < axis_rng[i + 1] for x in eyy]
+            ind_2 = [axis_rng[j] <= x < axis_rng[j + 1] for x in gt_eyy]
+            mat_yy[i,j] = sum(ind_1 .& ind_2)
+        end
+    end
+
+    # Plot
+    mat_y .+= 1
+    mat_yy .+= 1
+    mat_y ./= sum(mat_y)
+    mat_yy ./= sum(mat_yy)
+    mat_y_log10 = -log10.(mat_y)
+    mat_yy_log10 = -log10.(mat_yy)
+    xlab = "Fine-grain (WGBS)"
+    ylab = "Coarse-grain (Nanopore)"
+    axis_labs = [isodd(i) ? "$(axis_rng[i])" : "" for i = 1:(length(axis_rng))]
+    axis_ticks = (1:length(axis_labs), axis_labs)
+    p_ex = heatmap(mat_y_log10, xlabel=xlab, ylabel=ylab, xticks=axis_ticks, yticks=axis_ticks,
+        label="", c=cgrad([:white, :black]), clims=(1, 5), title="E[X] (\\rho=$(round(cor(gt_ey, ey);digits=2)))", xrotation=45);
+    p_exx = heatmap(mat_yy_log10, xlabel=xlab, ylabel=ylab, xticks=axis_ticks, yticks=axis_ticks,
+        label="", c=cgrad([:white, :black]), clims=(1, 5), title="E[XX] (\\rho=$(round(cor(gt_eyy, eyy);digits=2)))", xrotation=45);
+    plot(p_ex, p_exx, layout=(1, 2), size=(1100, 500), top_margin=10px, bottom_margin=20px, 
+        left_margin=20px, right_margin=20px)
+    savefig("$(nano_dir)/Heatmap-Exp-cov-$(cove)-s-$(sig)-Aim-2-Log-Res-$(res_grid).pdf")
 
     # Return nothing
     return nothing
@@ -459,9 +483,9 @@ plt_params_scatter(20.0,3.5)
 
 # Scatter Expectations
 println("Generating: Scatter expectations")
-plt_exp_scatter(10.0,2.0)
-plt_exp_scatter(20.0,2.0)
-plt_exp_scatter(10.0,3.0)
-plt_exp_scatter(20.0,3.0)
-plt_exp_scatter(10.0,3.5)
-plt_exp_scatter(20.0,3.5)
+plt_exp_heatmap(10.0,2.0)
+plt_exp_heatmap(20.0,2.0)
+plt_exp_heatmap(10.0,3.0)
+plt_exp_heatmap(20.0,3.0)
+plt_exp_heatmap(10.0,3.5)
+plt_exp_heatmap(20.0,3.5)
