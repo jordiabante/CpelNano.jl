@@ -266,6 +266,42 @@ function write_output_ϕ(path::String,rs_vec::Vector{RegStruct})::Nothing
 
 end
 """
+    `write_output_ϕ_marg(PATH,RS_VEC)`
+
+    Function that stores α & β for marginal model.
+
+    # Examples
+    ```julia-repl
+    julia> CpelNano.write_output_ϕ_marg(path,rs_vec)
+    ```
+"""
+function write_output_ϕ_marg(path::String,rs_vec::Vector{RegStruct})::Nothing
+
+    # Write ϕ
+    open(path,"a") do io
+        for rs in rs_vec
+
+            # Continue if no data
+            rs.proc || continue
+
+            # Obtain each field
+            ϕ = join(fill(NaN,3),',')
+
+            # Obtain α & β
+            α = join(get_α_from_ex(rs.exps.ex),',')
+            β = join(fill(0.0,rs.N-1),',')
+
+            # Write to file
+            write(io,"$(rs.chr)\t$(rs.chrst)\t$(rs.chrend)\t$(ϕ)\t$(α)\t$(β)\n")
+
+        end
+    end
+
+    # Return
+    return nothing
+
+end
+"""
     `write_output(REGS_DATA,CONFIG)`
 
     Function that writes output of `analyze_nano` to output files.

@@ -26,7 +26,7 @@ nano = "$(dataDir)/r9.4_450bps.cpg.6mer.template.model"
 nano_dic = CpelNano.get_nano_pore_mod(nano)
 
 #####################################################################################################
-# Sample averages nano file
+# Marginal model
 #####################################################################################################
 using CpelNano
 

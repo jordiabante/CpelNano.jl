@@ -524,6 +524,7 @@ function nano_smp_est(nano::String, fasta::String, config::CpelNanoConfig)::Noth
         # Write output
         write_output_ex(config.out_files.ex_file, out_pmap)
         write_output_exx(config.out_files.exx_file, out_pmap)
+        write_output_ϕ_marg(config.out_files.theta_file, out_pmap)
 
     end
 

@@ -23,3 +23,27 @@ function get_αβ_from_ϕ(ϕ::Vector{Float64}, rs::RegStruct)::NTuple{2,Vector{F
     return α, β
     
 end
+"""
+    `get_α_from_ex(exs)`
+
+    Get α vector from E[X] vector. Only used for marginal model
+
+        α_n = 0.5 * [log(E[X]+1) - log(1-E[X])]
+
+    # Examples
+    ```julia-repl
+    julia> CpelNano.get_α_from_ex(zeros(5))
+
+    ```
+"""
+function get_α_from_ex(exs::Vector{Float64})::Vector{Float64}
+    
+    # Obtain full α vector
+    α = 0.5 * [log((exs[l] + 1) / (1 - exs[l])) for l = 1:length(exs)]
+    α = max.(-AMAX, α)
+    α = min.(AMAX, α)
+
+    # Return α vector
+    return α
+    
+end
