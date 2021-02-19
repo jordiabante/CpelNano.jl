@@ -101,7 +101,7 @@ addprocs(8)
 @everywhere using Pkg
 @everywhere Pkg.activate("./")
 @everywhere using CpelNano
-# using CpelNano
+using CpelNano
 
 # Fasta
 fasta = "examples/full_example/reference/hg38_chr17_43023997_43145780.fa"
@@ -114,8 +114,10 @@ mod_path_s2 = "examples/two_samp_example/cpelnano/full_example_mod_nse_true_thet
 
 # Config
 config = CpelNano.CpelNanoConfig()
-config.out_dir = "examples/two_samp_example/tests/"
+# config.out_dir = "examples/two_samp_example/tests/"
+config.out_dir = "/Users/jordiabante/Desktop/two_samp_example/"
 config.out_prefix = "cpelnano_two_samp"
+config.pval_comp = false
 config.max_em_iters = 25
 config.max_em_init = 4
 config.verbose = true

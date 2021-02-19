@@ -54,13 +54,18 @@ mutable struct CpelNanoConfig
     pe::Bool                            # Paired end (used if BS data)
     out_files::OutputFiles              # Name of output files
     out_diff_files::OutputDiffFiles     # Name of output files
+    # Two sample testing
+    LMAX_TWO_SAMP::Int64                # Maximum number of permutations in 2 sample test
+    pval_comp::Bool                     # Compute p-values
     # Init methods
     CpelNanoConfig() = new(10.0,10,350,3000,10,20,"./","cpelnano",
         true,false,false,false,false,"nanopolish","",
-        false,(0, 0, 0, 0),false,OutputFiles("./", "cpelnano"),OutputDiffFiles("./", "cpelnano"))
+        false,(0, 0, 0, 0),false,OutputFiles("./", "cpelnano"),OutputDiffFiles("./", "cpelnano"),
+        100)
     CpelNanoConfig(min_cov, max_size_subreg, size_est_reg, max_em_init, max_em_iters) = 
         new(min_cov,10,max_size_subreg + 1,size_est_reg,max_em_init,max_em_iters,"","",
-        true,false,false,false,false,"nanopolish","",false,(0, 0, 0, 0),false,OutputFiles("", ""),OutputDiffFiles("", ""))
+        true,false,false,false,false,"nanopolish","",false,(0, 0, 0, 0),false,OutputFiles("", ""),OutputDiffFiles("", ""),
+        100)
 end
 
 ##################################################################################################
