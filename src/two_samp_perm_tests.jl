@@ -100,28 +100,27 @@ function pmap_diff_two_samp_comp(mod_s1::RegStruct, mod_s2::RegStruct, nano_s1::
     
     # Init output struct
     test_struct = RegStatTestStruct(mod_s1)
-
-    # Get group calls
-    get_calls!(mod_s1, nano_s1, config)
-    get_calls!(mod_s2, nano_s2, config)
     
-    # Number of reads
-    n_rds_s1 = length(mod_s1.calls)
-    n_rds_s2 = length(mod_s2.calls)
-
     # Observed statistics
     tmml_obs = mod_s1.mml - mod_s2.mml
     tnme_obs = mod_s1.nme - mod_s2.nme
     tcmd_obs = comp_cmd(mod_s1, mod_s2)
-
+    
     # Init p-values
     tmml_pvals = fill(NaN, length(tmml_obs))
     tnme_pvals = fill(NaN, length(tnme_obs))
     tcmd_pvals = fill(NaN, length(tcmd_obs))
-
+    
     # Compute p-values if need be
     if config.pval_comp
-
+        
+        # Get group calls
+        get_calls!(mod_s1, nano_s1, config)
+        get_calls!(mod_s2, nano_s2, config)
+        
+        # Number of reads
+        n_rds_s1 = length(mod_s1.calls)
+        n_rds_s2 = length(mod_s2.calls)
 
         # Compute number of possible randomizations
         L = binomial(BigInt(n_rds_s1 + n_rds_s2), BigInt(n_rds_s1))

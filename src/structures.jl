@@ -61,11 +61,11 @@ mutable struct CpelNanoConfig
     CpelNanoConfig() = new(10.0,10,350,3000,10,20,"./","cpelnano",
         true,false,false,false,false,"nanopolish","",
         false,(0, 0, 0, 0),false,OutputFiles("./", "cpelnano"),OutputDiffFiles("./", "cpelnano"),
-        100)
+        100,true)
     CpelNanoConfig(min_cov, max_size_subreg, size_est_reg, max_em_init, max_em_iters) = 
         new(min_cov,10,max_size_subreg + 1,size_est_reg,max_em_init,max_em_iters,"","",
         true,false,false,false,false,"nanopolish","",false,(0, 0, 0, 0),false,OutputFiles("", ""),OutputDiffFiles("", ""),
-        100)
+        100,true)
 end
 
 ##################################################################################################
