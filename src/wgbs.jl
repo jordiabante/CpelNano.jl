@@ -16,7 +16,7 @@
 
     # Examples
     ```julia-repl
-    julia> CpelTdm.get_align_strand(true,UInt16(99),UInt16(147))
+    julia> CpelNano.get_align_strand(true,UInt16(99),UInt16(147))
     "OT"
     ```
 """
@@ -61,7 +61,7 @@ end
 
     # Examples
     ```julia-repl
-    julia> CpelTdm.order_bams(true,RECORDS)
+    julia> CpelNano.order_bams(true,RECORDS)
     ```
 """
 function order_bams(pe::Bool, records::Vector{BAM.Record})::AlignTemp
@@ -86,7 +86,7 @@ end
 
     # Examples
     ```julia-repl
-    julia> CpelTdm.clean_records(true,RECORDS)
+    julia> CpelNano.clean_records(true,RECORDS)
     ```
 """
 function clean_records(pe::Bool, records::Vector{BAM.Record})::AllAlignTemps
@@ -121,7 +121,7 @@ end
 
     # Examples
     ```julia-repl
-    julia> CpelTdm.try_olaps(reader,chr,win)
+    julia> CpelNano.try_olaps(reader,chr,win)
     ```
 """
 function try_olaps(reader::BAM.Reader, chr::String, win::UnitRange{Int64})::Vector{BAM.Record}
@@ -144,7 +144,7 @@ end
 
     # Examples
     ```julia-repl
-    julia> CpelTdm.split_bam(bam,fasta,win_size)
+    julia> CpelNano.split_bam(bam,fasta,win_size)
     ```
 """
 function split_bam(bam::String, fasta::String, win_size::Int64)::Nothing
@@ -216,7 +216,7 @@ end
 
     # Examples
     ```julia-repl
-    julia> CpelTdm.get_calls_bam(BAM_PATH,"chr1",30,80,[40,60],false,(0,0,0,0))
+    julia> CpelNano.get_calls_bam(BAM_PATH,"chr1",30,80,[40,60],false,(0,0,0,0))
     ```
 """
 function get_calls_bam(bam::String,chr::String,roi_st::Int64,roi_end::Int64,cpg_pos::Vector{Int64},
@@ -225,8 +225,16 @@ function get_calls_bam(bam::String,chr::String,roi_st::Int64,roi_end::Int64,cpg_
     # Init return object
     calls = Vector{Vector{MethCallCpgGrp}}()
 
-    # Get records overlapping window.
-    reader = open(BAM.Reader, bam, index=bam * ".bai")
+    # Get records overlapping window if any
+    reader = 
+    try
+        open(BAM.Reader, bam, index=bam * ".bai")
+    catch
+        nothing
+    end
+    isnothing(reader) && return (0, Vector{MethCallCpgGrp}[])
+
+    # If no error proceed
     chr_size = reader.refseqlens[findfirst(x -> x == chr, reader.refseqnames)]
     roi_end = min(roi_end, chr_size - 151)
     records_olap = try_olaps(reader, chr, roi_st:roi_end)
