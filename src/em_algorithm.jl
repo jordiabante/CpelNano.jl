@@ -380,7 +380,6 @@ function get_ϕhat!(rs::RegStruct,config::CpelNanoConfig)::Nothing
     # Choose ϕ with maximum expected loglike
     ϕhat,Qhat = pick_ϕ(em_out)
     config.verbose && print_log("Converged to log[p(y)]=$(Qhat) and ϕ̂=$(ϕhat).")
-    # config.verbose && print_log("Converged to Q=$(Qhat) and ϕ̂=$(ϕhat).")
 
     # Set ϕhat
     rs.ϕhat = Qhat>-Inf ? ϕhat : Vector{Float64}()
@@ -404,6 +403,10 @@ end
     julia> rs = CpelNano.cpel_samp_wgbs(M,αs,βs,pobs);
     julia> rs.L = 10; rs.m = M; rs.Nl = fill(5.0,rs.L); rs.ρl = fill(0.1,rs.L); rs.dl = fill(10.0,rs.L-1);
     julia> CpelNano.em_iter_wgbs(zeros(3),rs)
+    3-element Array{Float64,1}:
+     0.03325893185287476
+     -0.2892156407342772 
+     -0.4490728553657923
     ```
 """
 function em_iter_wgbs(ϕinit::Vector{Float64},rs::RegStruct)::Vector{Float64}
@@ -457,50 +460,6 @@ function em_iter_wgbs(ϕinit::Vector{Float64},rs::RegStruct)::Vector{Float64}
     
 end
 """
-    `comp_Q_wgbs(REG_ST,ϕ)`
-
-    Function that computes E[log p(X,y)|Y=y;ϕ] in WGBS case.
-
-    # Examples
-    ```julia-repl
-    julia> M = 50; L = 80; αs = fill(0.0,L); βs = fill(0.0,L-1); pobs = 1.0;
-    julia> rs = CpelNano.cpel_samp_wgbs(M,αs,βs,pobs);
-    julia> rs.L = 10; rs.m = M; rs.Nl = fill(5.0,rs.L); rs.ρl = fill(0.1,rs.L); rs.dl = fill(10.0,rs.L-1);
-    julia> CpelNano.comp_Q_wgbs(rs,zeros(3))
-    -2.747243306144796
-    ```
-"""
-function comp_Q_wgbs(rs::RegStruct,ϕ::Vector{Float64})::Float64
-    
-    # Get αs & βs
-    αs,βs = CpelNano.get_αβ_from_ϕ(ϕ,rs)
-
-    # Compute Ec[X|y_m] & Ec[XX|y_m] for m=1,2,…,M
-    map_out = map(x->CpelNano.get_cond_exs(αs,βs,x),rs.calls)
-
-    # Compute Ec[S(X)] & Ec[SS(X)]
-    ES = CpelNano.get_ess(map_out,rs)
-
-    # Add <ϕ,E[S]>
-    Q = dot(ϕ,ES)
-
-    # Matrices
-    u1 = CpelNano.get_u(αs[1])
-    uL = CpelNano.get_u(αs[end])
-    Ws = [CpelNano.get_W(αs[l],αs[l+1],βs[l]) for l=1:length(βs)]
-
-    # Scale Ws for numerical stability
-    scaling = maximum(maximum.(Ws))
-    Ws = UniformScaling(1.0/scaling) * Ws
-
-    # Add - m⋅log[Z(ϕ)]
-    Q -= rs.m * (log(CpelNano.get_Z(u1,uL,Ws)) + length(Ws)*log(scaling))
-
-    # Return normalized Q
-    return Q/(rs.L*rs.m)
-
-end
-"""
 
     `em_inst_wgbs(data,ϕ0,config)`
     
@@ -508,10 +467,14 @@ end
     
     # Examples
     ```julia-repl
-    julia> M = 10; L = 10; αs = fill(0.0,L); βs = fill(0.0,L-1); pobs = 1.0;
-    julia> reg_dat = CpelNano.cpel_samp_wgbs(M,αs,βs,pobs);
-    julia> ϕhat,Q = CpelNano.em_inst_wgbs(reg_dat,zeros(3),CpelNano.CpelNanoConfig())
-    ([0.5210509995207954, 0.6242225806898237, 0.05607186596907174, 0.1085379770548646], -0.26316332446017654)
+    julia> a = -0.5; b = 50.0; c = 5.0; ϕ = [a,b,c]; L = 100;
+    julia> x=CpelNano.RegStruct(); x.L=L; x.Nl=fill(1.0,x.L);
+    julia> x.ρl=rand(0.001:0.001:0.1,x.L); x.dl=fill(10.0,x.L-1); 
+    julia> α,β = CpelNano.get_αβ_from_ϕ(ϕ,x);
+    julia> M = 50; pobs = 0.25; rs = CpelNano.cpel_samp_wgbs(M,α,β,pobs); 
+    julia> rs.L=x.L; rs.Nl=x.Nl; rs.ρl=x.ρl; rs.dl=x.dl;
+    julia> ϕhat,Q = CpelNano.em_inst_wgbs(rs,zeros(3),CpelNano.CpelNanoConfig())
+    ([-0.5951062621222193, 49.15833212427927, 4.912418802073447], -6.794310208252089)
     ```
 """
 function em_inst_wgbs(rs::RegStruct,ϕ0::Vector{Float64},config::CpelNanoConfig)::Tuple{Vector{Float64},Float64}
@@ -530,7 +493,7 @@ function em_inst_wgbs(rs::RegStruct,ϕ0::Vector{Float64},config::CpelNanoConfig)
         ϕtp1 = em_iter_wgbs(ϕt,rs)
         
         # Print out Q
-        config.verbose && print_log("ϕtp1=$(ϕtp1); Q(ϕ)=$(comp_Q_wgbs(rs,ϕtp1))")
+        config.verbose && print_log("ϕtp1=$(ϕtp1); log[p(y)]=$(comp_ave_log_py(rs,ϕtp1))")
 
         # Check for convergence
         conv = conv_check(ϕt,ϕtp1)
@@ -550,7 +513,7 @@ function em_inst_wgbs(rs::RegStruct,ϕ0::Vector{Float64},config::CpelNanoConfig)
     conv = conv && i>2
 
     # Get final pair
-    Q = conv ? comp_Q_wgbs(rs,ϕtp1) : -Inf
+    Q = conv ? comp_ave_log_py(rs,ϕtp1) : -Inf
 
     # Return pair (ϕ,Q)
     return ϕtp1,Q
@@ -573,7 +536,7 @@ end
     julia> rs.L=x.L; rs.Nl=x.Nl; rs.ρl=x.ρl; rs.dl=x.dl; 
     julia> config = CpelNano.CpelNanoConfig(); config.max_em_iters = 100; 
     julia> config.max_em_init = 1; config.verbose = true;
-    julia> CpelNano.get_ϕhat_wgbs!(rs,config); rs.ϕhat
+    julia> CpelNano.get_ϕhat_wgbs!(rs,config)
     ```
 """
 function get_ϕhat_wgbs!(rs::RegStruct,config::CpelNanoConfig)::Nothing
