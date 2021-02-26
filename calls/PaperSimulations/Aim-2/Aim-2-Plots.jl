@@ -646,7 +646,7 @@ function get_htmp_mat(vec1, vec2, axis_rng)
     
     outmat .+= 1
     outmat ./= sum(outmat)
-outmat = -log10.(outmat)
+    outmat = -log10.(outmat)
     
     return outmat
 
@@ -759,7 +759,7 @@ function plt_exp_heatmap(cove, sig)
     mat_yy ./= sum(mat_yy)
     mat_y_log10 = -log10.(mat_y)
     mat_yy_log10 = -log10.(mat_yy)
-xlab = "Fine-grain (WGBS)"
+    xlab = "Fine-grain (WGBS)"
     ylab = "Coarse-grain (Nanopore)"
     axis_labs = [isodd(i) ? "$(axis_rng[i])" : "" for i = 1:(length(axis_rng))]
     axis_ticks = (1:length(axis_labs), axis_labs)

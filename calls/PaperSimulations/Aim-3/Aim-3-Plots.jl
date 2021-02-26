@@ -1,5 +1,5 @@
 #################################################################################################
-# AIM 3: 
+# AIM 3
 #################################################################################################
 ## Deps
 using CodecZlib
@@ -205,6 +205,68 @@ function plt_exp_heatmap()
     return nothing
 
 end
+function plt_stats_heatmap()
+
+    # Ground-truth quantities
+    gt_mml_file = "$(wgbs_dir)/GM12878_wgbs_cpelnano_mml.txt.gz"
+    gt_nme_file = "$(wgbs_dir)/GM12878_wgbs_cpelnano_nme.txt.gz"
+    gt_mml_sts, gt_mml = read_in_ex_file(gt_mml_file)
+    gt_nme_sts, gt_nme = read_in_ex_file(gt_nme_file)
+
+    # Estimated quantities
+    mml_file = "$(nano_dir)/gm12878_chr22_cpelnano_mml.txt.gz"
+    nme_file = "$(nano_dir)/gm12878_chr22_cpelnano_nme.txt.gz"
+    mml_sts, mml = read_in_ex_file(mml_file)
+    nme_sts, nme = read_in_ex_file(nme_file)
+
+    # Find common regions E[X]
+    wgbs_sts_mml_ind, mml_sts_ind = find_comm_regions(gt_mml_sts, mml_sts)
+    gt_mml = gt_mml[wgbs_sts_mml_ind]
+    mml = mml[mml_sts_ind]
+    
+    # Find common regions E[XX]
+    wgbs_sts_nme_ind, nme_sts_ind = find_comm_regions(gt_nme_sts, nme_sts)
+    gt_nme = gt_nme[wgbs_sts_nme_ind]
+    nme = nme[nme_sts_ind]
+
+    # Construct matrix
+    res_grid = 0.05
+    axis_rng = collect(0:res_grid:1.0)
+    mat_mml = fill(0.0, (length(axis_rng) - 1, length(axis_rng) - 1))
+    mat_nme = fill(0.0, (length(axis_rng) - 1, length(axis_rng) - 1))
+    for i in (length(axis_rng) - 1):-1:1
+        for j in 1:(length(axis_rng) - 1)
+            ind_1 = [axis_rng[i] <= x < axis_rng[i + 1] for x in mml]
+            ind_2 = [axis_rng[j] <= x < axis_rng[j + 1] for x in gt_mml]
+            mat_mml[i,j] = sum(ind_1 .& ind_2)
+            ind_1 = [axis_rng[i] <= x < axis_rng[i + 1] for x in nme]
+            ind_2 = [axis_rng[j] <= x < axis_rng[j + 1] for x in gt_nme]
+            mat_nme[i,j] = sum(ind_1 .& ind_2)
+        end
+    end
+
+    # Plot
+    mat_mml .+= 1
+    mat_nme .+= 1
+    mat_mml ./= sum(mat_mml)
+    mat_nme ./= sum(mat_nme)
+    mat_mml_log10 = -log10.(mat_mml)
+    mat_nme_log10 = -log10.(mat_nme)
+    xlab = "Fine-grain (WGBS)"
+    ylab = "Coarse-grain (Nanopore)"
+    axis_labs = [isodd(i) ? "$(axis_rng[i])" : "" for i = 1:(length(axis_rng))]
+    axis_ticks = (1:length(axis_labs), axis_labs)
+    p_mml = heatmap(mat_mml_log10, xlabel=xlab, ylabel=ylab, xticks=axis_ticks, yticks=axis_ticks, label="", 
+        c=cgrad([:white, :black]), clims=(1, 4.3), title="MML (\\rho=$(round(cor(gt_mml, mml);digits=2)))", xrotation=45);
+    p_nme = heatmap(mat_nme_log10, xlabel=xlab, ylabel=ylab, xticks=axis_ticks, yticks=axis_ticks, label="", 
+        c=cgrad([:white, :black]), clims=(1, 4.3), title="NME (\\rho=$(round(cor(gt_nme, nme);digits=2)))", xrotation=45);
+    plot(p_mml, p_nme, layout=(1, 2), size=(1100, 500), top_margin=10px, bottom_margin=20px, left_margin=20px, right_margin=20px)
+    savefig("$(nano_dir)/Heatmap-Stats-Aim-3-Log-Res-$(res_grid).pdf")
+
+    # Return nothing
+    return nothing
+
+end
 #################################################################################################
 # Calls
 #################################################################################################
@@ -213,6 +275,10 @@ end
 println("Generating: Scatter parameters")
 plt_params_scatter()
 
-# Scatter Expectations
-println("Generating: Scatter expectations")
+# Heatmap Expectations
+println("Generating: Heatmap expectations")
 plt_exp_heatmap()
+
+# Heatmap Statistics
+println("Generating: Heatmap expectations")
+plt_stats_heatmap()
