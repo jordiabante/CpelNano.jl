@@ -454,7 +454,7 @@ function mat_est_reg_test(ms_g1::Vector{RegStruct}, ms_g2::Vector{RegStruct})::R
     tnme_pvals = fill(NaN, length(tnme_obs))
     
     # If enough data compute p-values
-    if (0.5^(length(μs_g1)-1))<0.05
+    if (0.5^length(μs_g1))<0.05
     
         # Get group label combinations to use
         exact = 2^length(ms_g1) < LMAX
