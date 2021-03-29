@@ -77,7 +77,67 @@ function pmap_two_samp_null_stats(rs_ref::RegStruct, calls_s1::Vector{Vector{Met
     tmml = aux_rs_s1.mml - aux_rs_s2.mml
     tnme = aux_rs_s1.nme - aux_rs_s2.nme
     tcmd = comp_cmd(aux_rs_s1, aux_rs_s2)
-    config.verbose && print_log("tmml=$(tmml[1]); tnme=$(tnme[1]); tcmd=$(tcmd[1])")
+    config.verbose && print_log("tmml=$(tmml)")
+    config.verbose && print_log("tnme=$(tnme)")
+    config.verbose && print_log("tcmd=$(tcmd)")
+
+    # Return tuple
+    return tmml, tnme, tcmd
+
+end
+"""
+    `pmap_two_samp_null_stats_test_fun(MOD_REF,CALLS_S1,CALLS_S2,PERM,CONFIG)`
+
+    Function that computes set of null statistics for a given data permutation.
+
+    # Examples
+    ```julia-repl
+    julia> CpelNano.pmap_two_samp_null_stats_test_fun(mod_ref,calls_s1,calls_s2,perm,config)
+    ```
+"""
+function pmap_two_samp_null_stats_test_fun(rs_ref::RegStruct, calls_s1::Vector{Vector{MethCallCpgGrp}}, calls_s2::Vector{Vector{MethCallCpgGrp}}, perm_ids::Vector{Int64}, config::CpelNanoConfig)::NTuple{3,Vector{Float64}}
+
+    # Create two aux structs
+    aux_rs_s1 = cp_rs_flds(rs_ref)
+    aux_rs_s2 = cp_rs_flds(rs_ref)
+    aux_rs_s1.m = length(calls_s1)
+    aux_rs_s2.m = length(calls_s2)
+
+    # Assign calls
+    aux_calls = vcat(calls_s1, calls_s2)
+    aux_rs_s1.calls = aux_calls[perm_ids]
+    deleteat!(aux_calls, perm_ids)
+    aux_rs_s2.calls = aux_calls
+
+    # Init output
+    tmml = fill(NaN, rs_ref.nls_rgs.num)
+    tnme = fill(NaN, rs_ref.nls_rgs.num)
+    tcmd = fill(NaN, rs_ref.nls_rgs.num)
+
+    # Do estimation
+    get_ϕhat!(aux_rs_s1, config)
+    get_ϕhat!(aux_rs_s2, config)
+
+    # Leave if we couldn't estimate ϕ
+    (length(aux_rs_s1.ϕhat) > 0 && length(aux_rs_s2.ϕhat) > 0) || return tmml, tnme, tcmd
+    print_log("ϕhat1=$(aux_rs_s1.ϕhat); ϕhat2=$(aux_rs_s2.ϕhat)")
+
+    # Statistical summaries
+    get_stat_sums!(aux_rs_s1, config)
+    get_stat_sums!(aux_rs_s2, config)
+
+    # Compute stats
+    tmml = aux_rs_s1.mml - aux_rs_s2.mml
+    tnme = aux_rs_s1.nme - aux_rs_s2.nme
+    tcmd = comp_cmd(aux_rs_s1, aux_rs_s2)
+    print_log("μ1=$(aux_rs_s1.mml)")
+    print_log("μ2=$(aux_rs_s2.mml)")
+    print_log("tmml=$(tmml)")
+    print_log("h1=$(aux_rs_s1.nme)")
+    print_log("h2=$(aux_rs_s2.nme)")
+    print_log("tnme=$(tnme)")
+    print_log("tcmd=$(tcmd)")
+    print_log("********************")
 
     # Return tuple
     return tmml, tnme, tcmd
@@ -158,6 +218,129 @@ function pmap_diff_two_samp_comp(mod_s1::RegStruct, mod_s2::RegStruct, nano_s1::
             
             # Compute null statistics
             pmap_out = pmap(perm -> pmap_two_samp_null_stats(mod_s1, calls_s1, calls_s2, perm, config), comb_iter_used)
+
+            # Distribute statistics
+            tmml_perms = [x[1] for x in pmap_out]
+            tnme_perms = [x[2] for x in pmap_out]
+            tcmd_perms = [x[3] for x in pmap_out]
+
+            ## P-value computation
+
+            # Loop over analysis regions
+            @inbounds for k in 1:length(tmml_obs)
+
+                # Check if data
+                isnan(tmml_obs[k]) && continue
+
+                # Get permutation stats from k-th analysis region
+                tmml_perms_k = [perm[k] for perm in tmml_perms]
+                tnme_perms_k = [perm[k] for perm in tnme_perms]
+                tcmd_perms_k = [perm[k] for perm in tcmd_perms]
+
+                # Clean NaNs in null stats
+                tmml_perms_k = tmml_perms_k[.!isnan.(tmml_perms_k)]
+                tnme_perms_k = tnme_perms_k[.!isnan.(tnme_perms_k)]
+                tcmd_perms_k = tcmd_perms_k[.!isnan.(tcmd_perms_k)]
+
+                # Check enough null stats after filtering NaNs
+                length(tmml_perms_k) > 20 || continue
+
+                # Get number of permutation stats equal or above observed
+                tmml_pval_k = sum(abs.(tmml_perms_k) .>= abs(tmml_obs[k]))
+                tnme_pval_k = sum(abs.(tnme_perms_k) .>= abs(tnme_obs[k]))
+                tcmd_pval_k = sum(tcmd_perms_k .>= tcmd_obs[k])
+
+                # Compute p-values
+                tmml_pvals[k] = exact ? tmml_pval_k / length(tmml_perms_k) : (1.0 + tmml_pval_k) / (1.0 + length(tmml_perms_k))
+                tnme_pvals[k] = exact ? tnme_pval_k / length(tnme_perms_k) : (1.0 + tnme_pval_k) / (1.0 + length(tnme_perms_k))
+                tcmd_pvals[k] = exact ? tcmd_pval_k / length(tcmd_perms_k) : (1.0 + tcmd_pval_k) / (1.0 + length(tcmd_perms_k))
+
+            end
+
+        end
+    end
+
+    # Fill return object
+    @inbounds for k in 1:length(tmml_obs)
+        test_struct.tests.tmml_test[k] = (tmml_obs[k], tmml_pvals[k])
+        test_struct.tests.tnme_test[k] = (tnme_obs[k], tnme_pvals[k])
+        test_struct.tests.tcmd_test[k] = (tcmd_obs[k], tcmd_pvals[k])
+    end
+
+    # Return test struct
+    return test_struct
+
+end
+"""
+    `pmap_diff_two_samp_comp_test(MODS_CHR_S1,MODS_CHR_S2,CONFIG)`
+
+    Function that performs differential methylation analysis between two samples given two  
+    CpelNano models. This function is for testing purposes.
+
+    # Examples
+    ```julia-repl
+    julia> CpelNano.pmap_diff_two_samp_comp_test(mods_chr_s1,mods_chr_s2,config)
+    ```
+"""
+function pmap_diff_two_samp_comp_test(mod_s1::RegStruct, mod_s2::RegStruct, config::CpelNanoConfig)::RegStatTestStruct
+
+    # Init output struct
+    test_struct = RegStatTestStruct(mod_s1)
+    
+    # Observed statistics
+    tmml_obs = mod_s1.mml - mod_s2.mml
+    tnme_obs = mod_s1.nme - mod_s2.nme
+    tcmd_obs = comp_cmd(mod_s1, mod_s2)
+    
+    # Init p-values
+    tmml_pvals = fill(NaN, length(tmml_obs))
+    tnme_pvals = fill(NaN, length(tnme_obs))
+    tcmd_pvals = fill(NaN, length(tcmd_obs))
+    
+    # Compute p-values if need be
+    if config.pval_comp
+        
+        # Number of reads
+        n_rds_s1 = length(mod_s1.calls)
+        n_rds_s2 = length(mod_s2.calls)
+
+        # Compute number of possible randomizations
+        L = binomial(BigInt(n_rds_s1 + n_rds_s2), BigInt(n_rds_s1))
+
+        # Create iteratable object with all combinations
+        comb_iter = combinations(1:(n_rds_s1 + n_rds_s2), n_rds_s1)
+
+        # If enough permutations
+        if L > 20
+            
+            #  Check if exact test
+            exact = L < config.LMAX_TWO_SAMP
+            
+            # # Go back to group scale
+            # get_grp_info!(mod_s1, fa_rec, config.min_grp_dist)
+            # get_grp_info!(mod_s2, fa_rec, config.min_grp_dist)
+        
+            # Store calls in aux vars
+            calls_s1 = deepcopy(mod_s1.calls)
+            calls_s2 = deepcopy(mod_s2.calls)
+
+            # Get read combinations to use
+            if exact
+                # Use all sample assignments
+                comb_iter_used = comb_iter
+            else
+                # Sample assignments to group 1
+                comb_iter_used = fill(Vector{Int64}(), config.LMAX_TWO_SAMP)
+                @inbounds for i = 1:config.LMAX_TWO_SAMP
+                    comb_iter_used[i] = sort!(StatsBase.sample(1:(n_rds_s1 + n_rds_s2), n_rds_s1;replace=false))
+                    print_log("$(comb_iter_used[i])")
+                end
+            end
+
+            ## Null statistics
+            
+            # Compute null statistics
+            pmap_out = pmap(perm -> pmap_two_samp_null_stats_test_fun(mod_s1, calls_s1, calls_s2, perm, config), comb_iter_used)
 
             # Distribute statistics
             tmml_perms = [x[1] for x in pmap_out]
