@@ -1,6 +1,6 @@
 # Dependencies
 using Distributed
-@everywhere push!(LOAD_PATH,"./")
+@everywhere push!(LOAD_PATH, "./")
 using CpelNano
 
 # IO
@@ -11,9 +11,9 @@ bed = "$(dataDir)/examples/targeted_example/regions_of_interest/brca1.bed"
 outdir = "$(dataDir)/examples/targeted_example/cpelnano/"
 
 # Output files 
-mml_path = "$(outdir)/targeted_example_mml.cpelnano"
-nme_path = "$(outdir)/targeted_example_nme.cpelnano"
-theta_path = "$(outdir)/targeted_example_theta.cpelnano"
+mml_path = "$(outdir)/targeted_example_mml.txt"
+nme_path = "$(outdir)/targeted_example_nme.txt"
+theta_path = "$(outdir)/targeted_example_theta.txt"
 
 # Remove output in outdir
 isfile(mml_path) && rm(mml_path)
@@ -22,13 +22,12 @@ isfile(theta_path) && rm(theta_path)
 
 # Show region of interest
 CpelNano.print_log("Regions of interest")
-println(String(read(bed)))
-readline()
+print(String(read(bed)))
 
 # Configuration
-min_cov=10.0; max_size_subreg=500; size_est_reg=4000; max_em_init=10; max_em_iters=20; 
-config = CpelNano.CpelNanoConfig(min_cov,max_size_subreg,size_est_reg,max_em_init,max_em_iters);
-config.out_dir = outdir; config.out_prefix = "targeted_example"; config.bed_reg = bed;
+min_cov = 10.0; max_size_subreg = 350; size_est_reg = 3000; max_em_init = 5; max_em_iters = 50; 
+config = CpelNano.CpelNanoConfig(min_cov, max_size_subreg, size_est_reg, max_em_init, max_em_iters);
+config.out_dir = outdir; config.out_prefix = "targeted_example"; config.bed_reg = bed; config.verbose = false;
 
 # Analyze each region in chr
 CpelNano.analyze_nano(nano,fasta,config)

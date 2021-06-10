@@ -5,10 +5,10 @@
 ## Description
 
 CpelNano is the first method designed to perform DNA methylation differential analysis
-using Oxford nanopore data. The package is based on a recently published method [1].
-CpelNano not only detects mean methylation level differences between groups, but it can
-also detect significant differences in methylation entropy as well as in the probability
-distribution of methylation (see [1] for technical details).
+using nanopore sequencing data. The package is based on a recently published method [1].
+CpelNano not only detects mean methylation level differences between groups and pairs of
+samples, but it can also detect significant differences in methylation entropy as well
+as in the probability distribution of methylation (see [1] for technical details).
 
 ## Testing
 
@@ -52,5 +52,5 @@ file for details.
 
 ## References
 
-[1] Abante, J., Kambhampati, S., Feinberg, A.P., Goutsias, J., CpelNano: differential
-DNA methylation analysis with Oxford nanopore data, *Journal* 2020 XYZ.
+[1] Abante, J., Kambhampati, S., Feinberg, A.P., Goutsias, J., Estimating DNA methylation
+potential energy landscapes from nanopore sequencing data, bioRxiv 2021.
