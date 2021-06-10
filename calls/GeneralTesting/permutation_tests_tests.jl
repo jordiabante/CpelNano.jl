@@ -55,7 +55,7 @@ test_treat = CpelNano.mat_est_reg_test(ms_g1, ms_g2)
 ######################################################################################
 using CpelNano
 
-L = 20; N = L; M = 50; pobs = 1.0; μ_m = 2.0; σ_m = 2.0; μ_u = -2.0; σ_u = 2.0; 
+L = 20; N = L; M = 25; pobs = 1.0; μ_m = 2.0; σ_m = 1.0; μ_u = -2.0; σ_u = 1.0; 
 Nl = fill(1.0, L); ρl = vcat(fill(1 / 1000, 8), fill(1 / 10, 4), fill(1 / 1000, 8)...); 
 dl = fill(150.0, L - 1); chrst = 1; chrend = 3000; cpg_pos = collect(100:150:chrend);
 
@@ -66,11 +66,13 @@ config.max_em_init = 8
 config.verbose = true
 
 # Parameter vector
-a = 0.0; b = -50.0; c = 0.0; ϕ = [a,b,c]; 
+a = 0.0; b = 100.0; c = 0.0; ϕ = [a,b,c]; 
 
 # Other parameters
 x = CpelNano.RegStruct(); x.N = N; x.L = L; x.Nl = Nl; x.ρl = ρl; x.dl = dl; 
-α, β = CpelNano.get_αβ_from_ϕ(ϕ, x); 
+x.chrst = chrst; x.chrend = chrend; x.cpg_pos = cpg_pos; x.ϕhat = ϕ;
+α, β = CpelNano.get_αβ_from_ϕ(ϕ, x);
+CpelNano.get_stat_sums!(x, config);
 
 # Simulate data
 rs = CpelNano.cpel_samp_ont(M, α, β, pobs, μ_m, σ_m, μ_u, σ_u); 
@@ -83,11 +85,13 @@ CpelNano.get_stat_sums!(rs, config);
 rs_1 = rs;
 
 # Parameter vector
-a = 0.0; b = 50.0; c = 0.0; ϕ = [a,b,c]; 
+a = 10.0; b = 150.0; c = 50.0; ϕ = [a,b,c]; 
 
 # Other parameters
 x = CpelNano.RegStruct(); x.N = N; x.L = L; x.Nl = Nl; x.ρl = ρl; x.dl = dl; 
+x.chrst = chrst; x.chrend = chrend; x.cpg_pos = cpg_pos; x.ϕhat = ϕ;
 α, β = CpelNano.get_αβ_from_ϕ(ϕ, x); 
+CpelNano.get_stat_sums!(x, config);
 
 # Simulate data
 rs = CpelNano.cpel_samp_ont(M, α, β, pobs, μ_m, σ_m, μ_u, σ_u); 
@@ -100,9 +104,9 @@ CpelNano.get_stat_sums!(rs, config);
 rs_2 = rs;
 
 # Config
-config.LMAX_TWO_SAMP = 100
+config.LMAX_TWO_SAMP = 50
 config.max_em_iters = 50
-config.max_em_init = 2
+config.max_em_init = 4
 config.verbose = false
 
 # Perform testing
