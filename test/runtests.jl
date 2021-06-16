@@ -1,7 +1,7 @@
 using CpelNano
 using Test
 
-@testset "Transfer Matrix" begin
+@testset "Computations check" begin
 
     ## Marginal expectations 
     
