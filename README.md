@@ -53,4 +53,6 @@ file for details.
 ## References
 
 [1] Abante, J., Kambhampati, S., Feinberg, A.P., Goutsias, J., Estimating DNA methylation
-potential energy landscapes from nanopore sequencing data, bioRxiv 2021.
+potential energy landscapes from nanopore sequencing data. _bioRxiv_ (2021).
+[2] Abante, J., Kambhampati, S., Feinberg, A.P., Goutsias, J., Estimating DNA methylation
+potential energy landscapes from nanopore sequencing data. _Scientific Reports_ (2021), 11-21619.
